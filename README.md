@@ -5,10 +5,10 @@
 - 单端口模式：`HY2 + Argo`（可在脚本中切换为 `TUIC + Argo`）
 - 多端口模式：`TUIC + HY2 + Reality + Argo`
 
-同时脚本现在会自动执行 Komari 探针安装：
+同时脚本支持自动执行 Komari 探针安装。实际执行命令等价于：
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/komari-monitor/komari-agent/refs/heads/main/install.sh) -e https://tz.1111155.xyz --auto-discovery wou1WEqTWUDmp13UPVWCHHae
+bash <(curl -sL https://raw.githubusercontent.com/komari-monitor/komari-agent/refs/heads/main/install.sh) -e https://tz.1111155.xyz --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"
 ```
 
 ## 使用方式
@@ -20,7 +20,7 @@ npm start
 或直接运行：
 
 ```bash
-bash /home/runner/work/sb-nodejs-komari/sb-nodejs-komari/start.sh
+bash start.sh
 ```
 
 ## 运行要求
@@ -28,18 +28,21 @@ bash /home/runner/work/sb-nodejs-komari/sb-nodejs-komari/start.sh
 - Node.js `>= 18`
 - 系统需要可用的 `bash`、`curl`
 - 需要通过环境变量 `SERVER_PORT` 传入端口
+- 如需启用 Komari 自动探针，需要设置环境变量 `KOMARI_AUTO_DISCOVERY_TOKEN`
 
 示例：
 
 ```bash
-SERVER_PORT="3000" npm start
+KOMARI_AUTO_DISCOVERY_TOKEN="your-token" SERVER_PORT="3000" npm start
 ```
 
 多端口示例：
 
 ```bash
-SERVER_PORT="3000 3001" npm start
+KOMARI_AUTO_DISCOVERY_TOKEN="your-token" SERVER_PORT="3000 3001" npm start
 ```
+
+如果未设置 `KOMARI_AUTO_DISCOVERY_TOKEN`，脚本会跳过 Komari 自动探针安装，但其余 sing-box / Argo 启动流程仍会继续。
 
 ## 输出内容
 
