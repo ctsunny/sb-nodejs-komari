@@ -11,7 +11,7 @@
 bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"
 ```
 
-默认情况下，脚本内置了一个固定的 Komari 安装脚本地址；如需切换到其它地址，可自行设置 `KOMARI_INSTALL_URL` 环境变量覆盖。
+默认情况下，脚本内置了一个固定的 Komari 安装脚本地址；如需覆盖 `KOMARI_INSTALL_URL`，请保持为 `https://raw.githubusercontent.com/komari-monitor/komari-agent/` 下的受信任地址，否则脚本会拒绝执行。
 
 ## 使用方式
 

@@ -9,6 +9,7 @@ ARGO_TOKEN=""
 SINGLE_PORT_UDP="hy2"
 
 # Komari 自动探针（默认固定到已验证的上游提交，可通过环境变量覆盖）
+KOMARI_INSTALL_URL_PREFIX="https://raw.githubusercontent.com/komari-monitor/komari-agent/"
 KOMARI_INSTALL_URL="${KOMARI_INSTALL_URL:-https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh}"
 KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-https://tz.1111155.xyz}"
 KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-}"
@@ -84,12 +85,19 @@ echo "[UUID] $UUID"
 
 # ================== Komari 自动探针 ==================
 if [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
-    echo "[Komari] 安装自动探针..."
-    if bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
-        echo "[Komari] 自动探针已安装"
-    else
-        echo "[Komari] 自动探针安装失败，继续启动主程序"
-    fi
+    case "$KOMARI_INSTALL_URL" in
+        "${KOMARI_INSTALL_URL_PREFIX}"*)
+            echo "[Komari] 安装自动探针..."
+            if bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
+                echo "[Komari] 自动探针已安装"
+            else
+                echo "[Komari] 自动探针安装失败，继续启动主程序"
+            fi
+            ;;
+        *)
+            echo "[Komari] 安装地址不受信任，跳过自动探针安装"
+            ;;
+    esac
 else
     echo "[Komari] 未设置 KOMARI_AUTO_DISCOVERY_TOKEN，跳过自动探针安装"
 fi
