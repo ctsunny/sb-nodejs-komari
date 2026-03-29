@@ -11,6 +11,8 @@
 bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"
 ```
 
+如果运行环境不是 root（例如常见的 Node.js 面板容器），官方安装脚本报错后，本仓库会自动回退为“下载 agent 二进制并以当前用户后台运行”，这样 `KOMARI_AUTO_DISCOVERY_TOKEN` 仍然可以生效，而不依赖 systemd/root 权限。
+
 默认情况下，脚本内置了一个固定的 Komari 安装脚本地址；如需覆盖 `KOMARI_INSTALL_URL`，请保持为 `https://raw.githubusercontent.com/komari-monitor/komari-agent/` 下的受信任地址，否则脚本会拒绝执行。
 
 如果你是“直接上传文件到面板”而不是通过 Git 克隆部署，可以直接编辑 `start.sh` 顶部的以下默认值：
@@ -42,6 +44,7 @@ bash start.sh
 - 系统需要可用的 `bash`、`curl`
 - 需要通过环境变量 `SERVER_PORT` 传入端口，或在 `start.sh` 的 `LOCAL_SERVER_PORT` 中写入默认端口
 - 如需启用 Komari 自动探针，需要设置环境变量 `KOMARI_AUTO_DISCOVERY_TOKEN`，或在 `start.sh` 的 `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN` 中写入默认 token
+- 在非 root 的面板环境中，Komari 会自动改为用户态后台运行，不再因为 installer 需要 root 而直接失效
 
 示例：
 

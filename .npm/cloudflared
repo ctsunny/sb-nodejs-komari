@@ -1,0 +1,3 @@
+#!/bin/bash
+echo 'https://mocked-argo.trycloudflare.com'
+sleep 3

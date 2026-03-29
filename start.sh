@@ -87,12 +87,59 @@ UUID_FILE="${FILE_PATH}/uuid.txt"
 [ -f "$UUID_FILE" ] && UUID=$(cat "$UUID_FILE") || { UUID=$(cat /proc/sys/kernel/random/uuid); echo "$UUID" > "$UUID_FILE"; }
 echo "[UUID] $UUID"
 
+start_komari_agent_rootless() {
+    local os_name arch_name download_url komari_agent_file komari_log_file
+    case "$(uname -s)" in
+        Linux) os_name="linux" ;;
+        Darwin) os_name="darwin" ;;
+        FreeBSD) os_name="freebsd" ;;
+        *) echo "[Komari] 不支持的系统: $(uname -s)" && return 1 ;;
+    esac
+
+    case "$(uname -m)" in
+        x86_64) arch_name="amd64" ;;
+        aarch64|arm64) arch_name="arm64" ;;
+        i386|i686) arch_name="386" ;;
+        armv7*|armv6*) arch_name="arm" ;;
+        *) echo "[Komari] 不支持的架构: $(uname -m)" && return 1 ;;
+    esac
+
+    komari_agent_file="${FILE_PATH}/komari-agent"
+    komari_log_file="${FILE_PATH}/komari-agent.log"
+    download_url="https://github.com/komari-monitor/komari-agent/releases/latest/download/komari-agent-${os_name}-${arch_name}"
+
+    echo "[Komari] 检测到非 root 环境，改为用户态启动..."
+    echo "[下载] ${komari_agent_file}..."
+    if ! curl -L -fsS --max-time 60 -o "$komari_agent_file" "$download_url"; then
+        echo "[Komari] 用户态探针下载失败，继续启动主程序"
+        return 1
+    fi
+
+    chmod +x "$komari_agent_file"
+    echo "[下载] ${komari_agent_file} 完成"
+
+    "$komari_agent_file" -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN" > "$komari_log_file" 2>&1 &
+    KOMARI_PID=$!
+    sleep 1
+
+    if kill -0 "$KOMARI_PID" 2>/dev/null; then
+        echo "[Komari] 自动探针已以用户态启动 PID: $KOMARI_PID"
+        return 0
+    fi
+
+    echo "[Komari] 用户态启动失败，继续启动主程序"
+    tail -n 20 "$komari_log_file" 2>/dev/null || true
+    return 1
+}
+
 # ================== Komari 自动探针 ==================
 if [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
     if [[ "$KOMARI_INSTALL_URL" =~ ^https://raw\.githubusercontent\.com/komari-monitor/komari-agent/[A-Za-z0-9._-]+/install\.sh$ ]]; then
         echo "[Komari] 安装自动探针..."
         if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
             echo "[Komari] 自动探针已安装"
+        elif [ "$(id -u)" -ne 0 ]; then
+            start_komari_agent_rootless || true
         else
             echo "[Komari] 自动探针安装失败，继续启动主程序"
         fi

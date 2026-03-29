@@ -1,0 +1,6 @@
+#!/bin/bash
+if [ "$1" = "run" ]; then
+  sleep 3
+else
+  echo "unsupported"
+fi
