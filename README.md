@@ -8,7 +8,7 @@
 同时脚本支持自动执行 Komari 探针安装。实际执行命令等价于：
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/komari-monitor/komari-agent/refs/heads/main/install.sh) -e https://tz.1111155.xyz --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"
+bash <(curl -fsSL https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh) -e https://tz.1111155.xyz --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"
 ```
 
 ## 使用方式
