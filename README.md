@@ -20,7 +20,9 @@ bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery 
 - `LOCAL_KOMARI_INSTALL_URL`
 - `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN`
 
-环境变量仍然优先；只有未传入环境变量时，脚本才会使用这些本地默认值。这样你只需要上传 `index.js`、`package.json`、`start.sh` 这 3 个程序文件即可运行，但请不要把包含真实 token 的 `start.sh` 再提交回公开仓库。
+环境变量仍然优先；只有未传入环境变量时，脚本才会使用这些本地默认值。这样你只需要上传 `index.js`、`package.json`、`start.sh` 这 3 个程序文件即可运行。
+
+> 注意：如果你把真实 token 直接写进了 `start.sh` 里，请不要再把这个文件提交回公开仓库。
 
 ## 使用方式
 
