@@ -13,6 +13,15 @@ bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery 
 
 默认情况下，脚本内置了一个固定的 Komari 安装脚本地址；如需覆盖 `KOMARI_INSTALL_URL`，请保持为 `https://raw.githubusercontent.com/komari-monitor/komari-agent/` 下的受信任地址，否则脚本会拒绝执行。
 
+如果你是“直接上传文件到面板”而不是通过 Git 克隆部署，可以直接编辑 `start.sh` 顶部的以下默认值：
+
+- `LOCAL_SERVER_PORT`
+- `LOCAL_KOMARI_ENDPOINT`
+- `LOCAL_KOMARI_INSTALL_URL`
+- `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN`
+
+环境变量仍然优先；只有未传入环境变量时，脚本才会使用这些本地默认值。这样你只需要上传 `index.js`、`package.json`、`start.sh` 这 3 个程序文件即可运行，但请不要把包含真实 token 的 `start.sh` 再提交回公开仓库。
+
 ## 使用方式
 
 ```bash
@@ -29,8 +38,8 @@ bash start.sh
 
 - Node.js `>= 18`
 - 系统需要可用的 `bash`、`curl`
-- 需要通过环境变量 `SERVER_PORT` 传入端口
-- 如需启用 Komari 自动探针，需要设置环境变量 `KOMARI_AUTO_DISCOVERY_TOKEN`
+- 需要通过环境变量 `SERVER_PORT` 传入端口，或在 `start.sh` 的 `LOCAL_SERVER_PORT` 中写入默认端口
+- 如需启用 Komari 自动探针，需要设置环境变量 `KOMARI_AUTO_DISCOVERY_TOKEN`，或在 `start.sh` 的 `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN` 中写入默认 token
 
 示例：
 

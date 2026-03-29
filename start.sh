@@ -8,10 +8,11 @@ ARGO_TOKEN=""
 # 单端口模式 UDP 协议选择: hy2 (默认) 或 tuic
 SINGLE_PORT_UDP="hy2"
 
-# Komari 自动探针（默认固定到已验证的上游提交，可通过环境变量覆盖）
-KOMARI_INSTALL_URL="${KOMARI_INSTALL_URL:-https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh}"
-KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-https://tz.1111155.xyz}"
-KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-}"
+# 上传文件部署时可直接填写以下默认值；环境变量优先级更高
+LOCAL_SERVER_PORT=""
+LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh"
+LOCAL_KOMARI_ENDPOINT="https://tz.1111155.xyz"
+LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
 
 # ================== CF 优选域名列表 ==================
 CF_DOMAINS=(
@@ -26,6 +27,11 @@ CF_DOMAINS=(
 # ================== 切换到脚本目录 ==================
 cd "$(dirname "$0")"
 export FILE_PATH="${PWD}/.npm"
+
+KOMARI_INSTALL_URL="${KOMARI_INSTALL_URL:-$LOCAL_KOMARI_INSTALL_URL}"
+KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-$LOCAL_KOMARI_ENDPOINT}"
+KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-$LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN}"
+PORTS_STRING="${SERVER_PORT:-$LOCAL_SERVER_PORT}"
 
 rm -rf "$FILE_PATH"
 mkdir -p "$FILE_PATH"
@@ -52,7 +58,6 @@ BEST_CF_DOMAIN=$(select_random_cf_domain)
 echo "[CF优选] $BEST_CF_DOMAIN"
 
 # ================== 获取端口 ==================
-[ -n "$SERVER_PORT" ] && PORTS_STRING="$SERVER_PORT" || PORTS_STRING=""
 read -ra AVAILABLE_PORTS <<< "$PORTS_STRING"
 PORT_COUNT=${#AVAILABLE_PORTS[@]}
 [ $PORT_COUNT -eq 0 ] && echo "[错误] 未找到端口" && exit 1
