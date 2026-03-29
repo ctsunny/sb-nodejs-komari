@@ -8,6 +8,11 @@ ARGO_TOKEN=""
 # 单端口模式 UDP 协议选择: hy2 (默认) 或 tuic
 SINGLE_PORT_UDP="hy2"
 
+# Komari 自动探针（默认固定到已验证的上游提交，可通过环境变量覆盖）
+KOMARI_INSTALL_URL="${KOMARI_INSTALL_URL:-https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh}"
+KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-https://tz.1111155.xyz}"
+KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-}"
+
 # ================== CF 优选域名列表 ==================
 CF_DOMAINS=(
     "cf.090227.xyz"
@@ -76,6 +81,22 @@ ARGO_PORT=8081
 UUID_FILE="${FILE_PATH}/uuid.txt"
 [ -f "$UUID_FILE" ] && UUID=$(cat "$UUID_FILE") || { UUID=$(cat /proc/sys/kernel/random/uuid); echo "$UUID" > "$UUID_FILE"; }
 echo "[UUID] $UUID"
+
+# ================== Komari 自动探针 ==================
+if [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
+    if [[ "$KOMARI_INSTALL_URL" =~ ^https://raw\.githubusercontent\.com/komari-monitor/komari-agent/[A-Za-z0-9._-]+/install\.sh$ ]]; then
+        echo "[Komari] 安装自动探针..."
+        if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
+            echo "[Komari] 自动探针已安装"
+        else
+            echo "[Komari] 自动探针安装失败，继续启动主程序"
+        fi
+    else
+        echo "[Komari] 安装地址不受信任，跳过自动探针安装"
+    fi
+else
+    echo "[Komari] 未设置 KOMARI_AUTO_DISCOVERY_TOKEN，跳过自动探针安装"
+fi
 
 # ================== 架构检测 & 下载 ==================
 ARCH=$(uname -m)
