@@ -33,9 +33,14 @@ KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-$LOCAL_KOMARI_ENDPOINT}"
 KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-$LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN}"
 PORTS_STRING="${SERVER_PORT:-$LOCAL_SERVER_PORT}"
 
+[ -n "$FILE_PATH" ] || { echo "[错误] 运行目录无效"; exit 1; }
 rm -rf "$FILE_PATH"
 mkdir -p "$FILE_PATH"
-[ -n "$FILE_PATH" ] && [ -d "$FILE_PATH" ] && [ -w "$FILE_PATH" ] || { echo "[错误] 运行目录不可写: $FILE_PATH" && exit 1; }
+[ -n "$FILE_PATH" ] && [ -d "$FILE_PATH" ] && [ -w "$FILE_PATH" ] || { echo "[错误] 运行目录不可写: $FILE_PATH"; exit 1; }
+
+is_valid_komari_endpoint() {
+    [[ "$1" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[^[:space:]\"<>]*)?$ ]]
+}
 
 # ================== 获取公网 IP ==================
 echo "[网络] 获取公网 IP..."
@@ -90,6 +95,11 @@ echo "[UUID] $UUID"
 
 start_komari_agent_rootless() {
     local os_name arch_name download_url komari_agent_file komari_log_file
+    is_valid_komari_endpoint "$KOMARI_ENDPOINT" || {
+        echo "[Komari] Endpoint 格式无效，跳过用户态启动"
+        return 1
+    }
+
     case "$(uname -s)" in
         Linux) os_name="linux" ;;
         Darwin) os_name="darwin" ;;
@@ -135,7 +145,7 @@ start_komari_agent_rootless() {
 
 # ================== Komari 自动探针 ==================
 if [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
-    if [[ ! "$KOMARI_ENDPOINT" =~ ^https?://[^[:space:]]+$ ]]; then
+    if ! is_valid_komari_endpoint "$KOMARI_ENDPOINT"; then
         echo "[Komari] Endpoint 格式无效，跳过自动探针安装"
     elif [[ "$KOMARI_INSTALL_URL" =~ ^https://raw\.githubusercontent\.com/komari-monitor/komari-agent/[A-Za-z0-9._-]+/install\.sh$ ]]; then
         echo "[Komari] 安装自动探针..."
