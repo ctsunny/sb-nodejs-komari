@@ -8,7 +8,7 @@ ARGO_TOKEN=""
 # 单端口模式 UDP 协议选择: hy2 (默认) 或 tuic
 SINGLE_PORT_UDP="hy2"
 
-# Komari 自动探针
+# Komari 自动探针（默认固定到已验证的上游提交，可通过环境变量覆盖）
 KOMARI_INSTALL_URL="${KOMARI_INSTALL_URL:-https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh}"
 KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-https://tz.1111155.xyz}"
 KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-}"

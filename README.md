@@ -5,11 +5,13 @@
 - 单端口模式：`HY2 + Argo`（可在脚本中切换为 `TUIC + Argo`）
 - 多端口模式：`TUIC + HY2 + Reality + Argo`
 
-同时脚本支持自动执行 Komari 探针安装。实际执行命令等价于：
+同时脚本支持自动执行 Komari 探针安装。执行形式等价于：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh) -e https://tz.1111155.xyz --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"
+bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"
 ```
+
+默认情况下，脚本内置了一个固定的 Komari 安装脚本地址；如需切换到其它地址，可自行设置 `KOMARI_INSTALL_URL` 环境变量覆盖。
 
 ## 使用方式
 
