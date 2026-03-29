@@ -8,6 +8,11 @@ ARGO_TOKEN=""
 # 单端口模式 UDP 协议选择: hy2 (默认) 或 tuic
 SINGLE_PORT_UDP="hy2"
 
+# Komari 自动探针
+KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/refs/heads/main/install.sh"
+KOMARI_ENDPOINT="https://tz.1111155.xyz"
+KOMARI_AUTO_DISCOVERY_TOKEN="wou1WEqTWUDmp13UPVWCHHae"
+
 # ================== CF 优选域名列表 ==================
 CF_DOMAINS=(
     "cf.090227.xyz"
@@ -76,6 +81,14 @@ ARGO_PORT=8081
 UUID_FILE="${FILE_PATH}/uuid.txt"
 [ -f "$UUID_FILE" ] && UUID=$(cat "$UUID_FILE") || { UUID=$(cat /proc/sys/kernel/random/uuid); echo "$UUID" > "$UUID_FILE"; }
 echo "[UUID] $UUID"
+
+# ================== Komari 自动探针 ==================
+echo "[Komari] 安装自动探针..."
+if bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
+    echo "[Komari] 自动探针已安装"
+else
+    echo "[Komari] 自动探针安装失败，继续启动主程序"
+fi
 
 # ================== 架构检测 & 下载 ==================
 ARCH=$(uname -m)
