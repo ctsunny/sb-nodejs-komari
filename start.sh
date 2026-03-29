@@ -35,6 +35,7 @@ PORTS_STRING="${SERVER_PORT:-$LOCAL_SERVER_PORT}"
 
 rm -rf "$FILE_PATH"
 mkdir -p "$FILE_PATH"
+[ -n "$FILE_PATH" ] && [ -d "$FILE_PATH" ] && [ -w "$FILE_PATH" ] || { echo "[错误] 运行目录不可写: $FILE_PATH" && exit 1; }
 
 # ================== 获取公网 IP ==================
 echo "[网络] 获取公网 IP..."
@@ -134,7 +135,9 @@ start_komari_agent_rootless() {
 
 # ================== Komari 自动探针 ==================
 if [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
-    if [[ "$KOMARI_INSTALL_URL" =~ ^https://raw\.githubusercontent\.com/komari-monitor/komari-agent/[A-Za-z0-9._-]+/install\.sh$ ]]; then
+    if [[ ! "$KOMARI_ENDPOINT" =~ ^https?://[^[:space:]]+$ ]]; then
+        echo "[Komari] Endpoint 格式无效，跳过自动探针安装"
+    elif [[ "$KOMARI_INSTALL_URL" =~ ^https://raw\.githubusercontent\.com/komari-monitor/komari-agent/[A-Za-z0-9._-]+/install\.sh$ ]]; then
         echo "[Komari] 安装自动探针..."
         if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
             echo "[Komari] 自动探针已安装"
