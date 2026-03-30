@@ -141,6 +141,8 @@ npm start
 SERVER_PORT=8000
 ```
 
+> 说明：下面出现的 Komari 地址、token、域名都只是占位示例，请替换成你自己的配置，不要直接照抄示例值。
+
 如果你要启用 Komari，再额外填写以下其中一种：
 
 ```text
@@ -179,6 +181,31 @@ KOMARI_AUTO_DISCOVERY_TOKEN=你的自动发现token
 - **Path**: `/sub`
 
 如果你把健康检查写成 `/`，服务即使已经启动，也可能因为返回 404 而被 Koyeb 判定为不健康。
+
+### 第 7.5 步：怎么看订阅地址
+
+现在脚本会优先把订阅地址输出为 Argo 域名：
+
+```text
+https://ARGO_DOMAIN/sub
+```
+
+只有在 Argo 域名暂时没拿到时，才会回退为：
+
+```text
+http://IP:PORT/sub
+```
+
+因此看到日志里的：
+
+- `订阅链接: https://xxxx.trycloudflare.com/sub`
+
+时，优先直接使用这一条。  
+如果同时还看到了：
+
+- `直连订阅: http://IP:PORT/sub`
+
+那只是给公网直连环境保留的备用地址。
 
 ### 第 8 步：部署并查看日志
 

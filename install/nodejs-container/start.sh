@@ -255,19 +255,72 @@ generate_sub() {
 cat > "${FILE_PATH}/server.js" <<JSEOF
 const http = require('http');
 const fs = require('fs');
+const net = require('net');
+const { URL } = require('url');
 const port = process.argv[2] || 8080;
 const bind = process.argv[3] || '0.0.0.0';
-http.createServer((req, res) => {
-    if (req.url.includes('/sub') || req.url.includes('/${UUID}')) {
+const proxyHost = process.argv[4] || '127.0.0.1';
+const proxyPort = Number(process.argv[5] || 8081);
+const subPath = '/sub';
+const uuidPath = '/${UUID}';
+const wsPath = '/${UUID}-vless';
+
+const getPathname = (url) => {
+    try {
+        return new URL(url, 'http://127.0.0.1').pathname;
+    } catch (error) {
+        return '';
+    }
+};
+
+const isSubPath = (url) => {
+    const pathname = getPathname(url);
+    return pathname === subPath || pathname === uuidPath;
+};
+
+const isWsPath = (url) => getPathname(url) === wsPath;
+
+const server = http.createServer((req, res) => {
+    if (isSubPath(req.url)) {
         res.writeHead(200, {'Content-Type': 'text/plain; charset=utf-8'});
         try { res.end(fs.readFileSync('${FILE_PATH}/sub.txt', 'utf8')); } catch(e) { res.end('error'); }
     } else { res.writeHead(404); res.end('404'); }
-}).listen(port, bind, () => console.log('HTTP on ' + bind + ':' + port));
+});
+
+server.on('upgrade', (req, socket, head) => {
+    if (!isWsPath(req.url)) {
+        socket.end('HTTP/1.1 404 Not Found\r\n\r\n');
+        return;
+    }
+
+    const upstream = net.connect(proxyPort, proxyHost, () => {
+        upstream.write(`GET ${req.url} HTTP/${req.httpVersion}\r\n`);
+        for (let headerIndex = 0; headerIndex < req.rawHeaders.length; headerIndex += 2) {
+            upstream.write(`${req.rawHeaders[headerIndex]}: ${req.rawHeaders[headerIndex + 1]}\r\n`);
+        }
+        upstream.write('\r\n');
+        if (head.length > 0) {
+            upstream.write(head);
+        }
+        socket.pipe(upstream);
+        upstream.pipe(socket);
+    });
+
+    upstream.on('error', () => {
+        if (!socket.destroyed) {
+            socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n');
+        }
+    });
+
+    socket.on('error', () => upstream.destroy());
+});
+
+server.listen(port, bind, () => console.log('HTTP on ' + bind + ':' + port));
 JSEOF
 
 # ================== 启动 HTTP 订阅服务 ==================
 echo "[HTTP] 启动订阅服务 (端口 $HTTP_PORT)..."
-node "${FILE_PATH}/server.js" $HTTP_PORT 0.0.0.0 &
+node "${FILE_PATH}/server.js" $HTTP_PORT 0.0.0.0 127.0.0.1 $ARGO_PORT &
 HTTP_PID=$!
 sleep 1
 echo "[HTTP] 订阅服务已启动"
@@ -375,7 +428,7 @@ ARGO_LOG="${FILE_PATH}/argo.log"
 ARGO_DOMAIN=""
 
 echo "[Argo] 启动隧道 (HTTP2模式)..."
-"$ARGO_FILE" tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --url http://127.0.0.1:${ARGO_PORT} > "$ARGO_LOG" 2>&1 &
+"$ARGO_FILE" tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --url http://127.0.0.1:${HTTP_PORT} > "$ARGO_LOG" 2>&1 &
 ARGO_PID=$!
 
 for i in {1..30}; do
@@ -389,7 +442,8 @@ done
 generate_sub "$ARGO_DOMAIN"
 
 # ================== 确定订阅链接 ==================
-SUB_URL="http://${PUBLIC_IP}:${HTTP_PORT}/sub"
+DIRECT_SUB_URL="http://${PUBLIC_IP}:${HTTP_PORT}/sub"
+[ -n "$ARGO_DOMAIN" ] && SUB_URL="https://${ARGO_DOMAIN}/sub" || SUB_URL="$DIRECT_SUB_URL"
 
 # ================== 输出结果 ==================
 echo ""
@@ -412,6 +466,7 @@ else
 fi
 echo ""
 echo "订阅链接: $SUB_URL"
+[ "$SUB_URL" != "$DIRECT_SUB_URL" ] && echo "直连订阅: $DIRECT_SUB_URL"
 echo "==================================================="
 echo ""
 
