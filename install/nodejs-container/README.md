@@ -8,6 +8,10 @@
 
 > 说明：仓库根目录 `main` 当前已经固定为 Koyeb 预置版本；如果你不是部署到 Koyeb，而是部署到普通 Node.js 容器 / 面板，请优先使用当前目录里的版本。
 
+如果你的面板**不支持上传 `start.sh`**，则不要使用当前目录，直接改用：
+
+- [../nodejs-no-startsh/README.md](../nodejs-no-startsh/README.md)
+
 ## 对应安装代码
 
 这个目录本身就是“通用 Node.js 容器分支”的预置内容，已经放好了对应主程序文件：

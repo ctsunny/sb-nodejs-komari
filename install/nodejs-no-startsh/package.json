@@ -1,0 +1,13 @@
+{
+  "name": "SB-NJ",
+  "version": "1.0.0",
+  "description": "Komari Node.js no-startsh panel",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

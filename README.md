@@ -27,6 +27,7 @@
 
 - [install/README.md](./install/README.md)：所有子版本总览
 - [install/nodejs-container](./install/nodejs-container/README.md)：通用 Node.js 容器 / 面板版本
+- [install/nodejs-no-startsh](./install/nodejs-no-startsh/README.md)：面板不支持上传 `start.sh` 时使用的纯 Node.js 特殊版本
 - [install/komari-only](./install/komari-only/README.md)：仅安装 Komari 探针版本
 - [install/koyeb](./install/koyeb/README.md)：与根目录同步的 Koyeb 预置拷贝，方便你后续单独拆分分支
 
@@ -74,6 +75,12 @@ bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN
 环境变量仍然优先；只有未传入环境变量时，脚本才会使用这些本地默认值。这样你只需要上传 `index.js`、`package.json`、`start.sh` 这 3 个程序文件即可运行。
 
 > 注意：如果你把真实 token 直接写进了 `start.sh` 里，请不要再把这个文件提交回公开仓库。
+
+如果你的面板**压根不支持上传 `start.sh`**，请不要硬套根目录主版本，直接改用：
+
+- [install/nodejs-no-startsh](./install/nodejs-no-startsh/README.md)
+
+这个特殊版本只依赖 `index.js` 和 `package.json`，更适合只能跑纯 Node.js 入口的场景。
 
 ## 面板用户详细操作说明（下载 / 改动 / 上传）
 
