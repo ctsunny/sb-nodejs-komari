@@ -58,6 +58,24 @@
 
 - [install/koyeb/README.md](./koyeb/README.md)
 
+### 4. `install/nodejs-no-startsh`
+
+适合：
+
+- 面板不支持上传 `start.sh`
+- 面板只允许跑纯 Node.js 入口
+- 你只想接入 Komari，不需要同时运行 sing-box / Argo
+
+特点：
+
+- 只需要 `index.js` + `package.json`
+- 纯 Node.js 下载并启动 `komari-agent`
+- 自带一个文本日志面板
+
+说明入口：
+
+- [install/nodejs-no-startsh/README.md](./nodejs-no-startsh/README.md)
+
 ## 使用建议
 
 ### 如果你部署到 Koyeb
@@ -71,6 +89,8 @@
 ### 如果你部署到其他 Node.js 容器 / 面板
 
 优先使用 `install/nodejs-container` 目录中的版本，因为它保留了更适合面板场景的空端口默认值，避免把 Koyeb 的 `8000` 写死到你的容器里；现在它也会自动识别常见面板注入的端口环境变量。
+
+如果你的面板**明确不支持上传 `start.sh`**，再改用 `install/nodejs-no-startsh`。
 
 ### 如果你只需要 Komari
 
