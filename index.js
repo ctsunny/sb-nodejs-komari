@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const { spawn } = require('child_process');
+const { constants } = require('os');
 
 const child = spawn('bash', ['start.sh'], {
   cwd: __dirname,
@@ -26,8 +27,7 @@ child.on('exit', (code, signal) => {
   }
 
   if (signal) {
-    process.kill(process.pid, signal);
-    return;
+    process.exit(128 + (constants.signals[signal] || 0));
   }
 
   process.exit(code ?? 0);
