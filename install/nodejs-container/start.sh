@@ -33,7 +33,59 @@ KOMARI_INSTALL_URL="${KOMARI_INSTALL_URL:-$LOCAL_KOMARI_INSTALL_URL}"
 KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-$LOCAL_KOMARI_ENDPOINT}"
 KOMARI_TOKEN="${KOMARI_TOKEN:-$LOCAL_KOMARI_TOKEN}"
 KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-$LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN}"
-PORTS_STRING="${SERVER_PORT:-$LOCAL_SERVER_PORT}"
+
+normalize_ports_string() {
+    local raw="${1:-}" port
+    local -a ports=()
+    raw="${raw//,/ }"
+    raw="${raw//;/ }"
+    raw="${raw//$'\r'/ }"
+    raw="${raw//$'\n'/ }"
+    raw="${raw//$'\t'/ }"
+    for port in $raw; do
+        [[ "$port" =~ ^[0-9]{1,5}$ ]] || continue
+        [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || continue
+        ports+=("$port")
+    done
+    [ ${#ports[@]} -gt 0 ] && printf '%s' "${ports[*]}"
+}
+
+detect_panel_ports() {
+    local var_name raw normalized
+    local -a preferred_vars=(PORT PORTS PANEL_PORT PANEL_PORTS APP_PORT APP_PORTS WEB_PORT WEB_PORTS HTTP_PORT HTTP_PORTS LISTEN_PORT LISTEN_PORTS)
+    for var_name in "${preferred_vars[@]}"; do
+        raw="${!var_name:-}"
+        normalized="$(normalize_ports_string "$raw")"
+        if [ -n "$normalized" ]; then
+            echo "[端口] 自动识别环境变量 ${var_name}: ${normalized}" >&2
+            printf '%s' "$normalized"
+            return 0
+        fi
+    done
+
+    while IFS= read -r var_name; do
+        case "$var_name" in
+            LOCAL_SERVER_PORT|SERVER_PORT|ARGO_PORT|PORT|PORTS|PANEL_PORT|PANEL_PORTS|APP_PORT|APP_PORTS|WEB_PORT|WEB_PORTS|HTTP_PORT|HTTP_PORTS|LISTEN_PORT|LISTEN_PORTS)
+                continue
+                ;;
+            *_PORT|*_PORTS)
+                raw="${!var_name:-}"
+                normalized="$(normalize_ports_string "$raw")"
+                if [ -n "$normalized" ]; then
+                    echo "[端口] 自动识别环境变量 ${var_name}: ${normalized}" >&2
+                    printf '%s' "$normalized"
+                    return 0
+                fi
+                ;;
+        esac
+    done < <(compgen -e)
+
+    return 1
+}
+
+PORTS_STRING="$(normalize_ports_string "${SERVER_PORT:-}")"
+[ -n "$PORTS_STRING" ] || PORTS_STRING="$(normalize_ports_string "$LOCAL_SERVER_PORT")"
+[ -n "$PORTS_STRING" ] || PORTS_STRING="$(detect_panel_ports || true)"
 
 [ -n "$FILE_PATH" ] || { echo "[错误] 运行目录无效"; exit 1; }
 if [ -d "$FILE_PATH" ]; then

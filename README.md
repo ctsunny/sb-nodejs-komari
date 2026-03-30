@@ -15,6 +15,8 @@
 
 如果你准备直接把这个仓库导入 Koyeb，优先使用根目录文件即可，不需要再额外挑版本。
 
+如果你的平台会自动生成旧的 Node 构建镜像（例如 `node:14` / Debian buster），现在也可以直接使用仓库根目录自带的 `Dockerfile`。它固定使用较新的 Node 基础镜像，并且对 `apt-get update` 增加了重试；如果检测到 Debian 旧源失效，还会自动切到 archive 源后再重试，避免因为 `buster` 源 404 直接构建失败。
+
 如果你想看更细的 Koyeb 专项步骤，也可以继续查看：
 
 - [README.Koyeb.md](./README.Koyeb.md)

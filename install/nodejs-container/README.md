@@ -30,11 +30,11 @@
 
 ### 2. 填写参数
 
-你可以二选一：
+你现在可以三选一：
 
 #### 方式 A：直接修改 `start.sh` 顶部默认值
 
-重点看这几项（这里故意不把端口写死成 `8000`，方便你按面板分配值填写）：
+重点看这几项（这里不把端口写死成 `8000`；如果你的面板会自动注入端口环境变量，也可以保持为空）：
 
 ```bash
 LOCAL_SERVER_PORT=""
@@ -46,7 +46,7 @@ LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
 
 > 说明：这里的地址、token、域名全部都是占位示例，请换成你自己的配置，不要直接照抄示例值。
 
-推荐至少填写：
+如果你的面板**不会**自动注入端口环境变量，才建议手动填写：
 
 - `LOCAL_SERVER_PORT`
 
@@ -72,6 +72,20 @@ LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
 并且要注意：
 
 > 环境变量优先级高于 `start.sh` 顶部默认值。
+
+#### 方式 C：直接使用面板自动注入的端口环境变量
+
+如果你的运行平台会自动注入端口变量，现在可以不再手动填写 `LOCAL_SERVER_PORT`。
+脚本会在 `SERVER_PORT` / `LOCAL_SERVER_PORT` 都为空时，继续自动识别常见变量，例如：
+
+- `PORT`
+- `PORTS`
+- `PANEL_PORT`
+- `APP_PORT`
+- `WEB_PORT`
+- `HTTP_PORT`
+- `LISTEN_PORT`
+- 以及其他名字形如 `XXX_PORT` / `XXX_PORTS` 的环境变量
 
 ## 单端口与多端口说明
 
@@ -158,13 +172,11 @@ bash start.sh
 
 ### 1. 启动时提示 `未找到端口`
 
-说明没有正确设置：
+说明脚本没有从下面几类来源里拿到有效端口：
 
 - `SERVER_PORT`
-
-或：
-
 - `LOCAL_SERVER_PORT`
+- 面板自动注入的 `PORT` / `HTTP_PORT` / `XXX_PORT`
 
 ### 2. 日志提示 `Endpoint 格式无效`
 
