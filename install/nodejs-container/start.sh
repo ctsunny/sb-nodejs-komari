@@ -295,8 +295,8 @@ server.on('upgrade', (req, socket, head) => {
 
     const upstream = net.connect(proxyPort, proxyHost, () => {
         upstream.write(`GET ${req.url} HTTP/${req.httpVersion}\r\n`);
-        for (let index = 0; index < req.rawHeaders.length; index += 2) {
-            upstream.write(`${req.rawHeaders[index]}: ${req.rawHeaders[index + 1]}\r\n`);
+        for (let headerIndex = 0; headerIndex < req.rawHeaders.length; headerIndex += 2) {
+            upstream.write(`${req.rawHeaders[headerIndex]}: ${req.rawHeaders[headerIndex + 1]}\r\n`);
         }
         upstream.write('\r\n');
         if (head.length > 0) {
