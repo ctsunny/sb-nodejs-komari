@@ -5,23 +5,41 @@
 - 单端口模式：`HY2 + Argo`（可在脚本中切换为 `TUIC + Argo`）
 - 多端口模式：`TUIC + HY2 + Reality + Argo`
 
-## 预置分支目录
+## 当前主版本说明
 
-为了方便你后续手动拆成不同分支，仓库现在把不同容器 / 使用场景对应的内容先放在 `main` 里的单独目录：
+仓库根目录（`main`）现在默认就是 **Koyeb 可直接使用的版本**：
 
-- [install/nodejs-container](./install/nodejs-container/README.md)：通用 Node.js 容器 / 面板分支预置目录
-- [install/koyeb](./install/koyeb/README.md)：Koyeb 分支预置目录
-- [install/komari-only](./install/komari-only/README.md)：仅安装 Komari 分支预置目录
+- `start.sh` 顶部已经内置 `LOCAL_SERVER_PORT="8000"`
+- 启动命令仍然使用 `npm start`
+- Koyeb 健康检查请使用 `/sub`，不要写 `/`
 
-这些目录的用途是：
+如果你准备直接把这个仓库导入 Koyeb，优先使用根目录文件即可，不需要再额外挑版本。
 
-- 先在 `main` 中集中存放不同分支对应的文件
-- 你后续可以把某个目录里的内容手动提取到对应分支根目录
-- 仓库根目录仍然保留当前完整版主程序
-
-如果你准备部署到 Koyeb，也可以继续查看原有单独整理的说明文档：
+如果你想看更细的 Koyeb 专项步骤，也可以继续查看：
 
 - [README.Koyeb.md](./README.Koyeb.md)
+
+## main 下的其他版本目录
+
+为了避免不同容器场景互相混淆，其他版本统一单独放在 `install` 目录下，并且每个目录都带中文说明：
+
+- [install/README.md](./install/README.md)：所有子版本总览
+- [install/nodejs-container](./install/nodejs-container/README.md)：通用 Node.js 容器 / 面板版本
+- [install/komari-only](./install/komari-only/README.md)：仅安装 Komari 探针版本
+- [install/koyeb](./install/koyeb/README.md)：与根目录同步的 Koyeb 预置拷贝，方便你后续单独拆分分支
+
+## Koyeb 快速部署
+
+如果你是 Koyeb 用户，最简单的配置就是：
+
+1. 在 Koyeb 里选择 **GitHub -> Web Service**
+2. Build Command 使用默认识别，或填写 `npm install`
+3. Run Command 填 `npm start`
+4. Exposed Port 填 `8000`
+5. Health Check 路径填 `/sub`
+
+默认情况下，不额外传 `SERVER_PORT` 也会使用内置的 `8000`。  
+如果你想换成别的端口，也可以显式设置 `SERVER_PORT`，但要同时把 Koyeb 暴露端口和健康检查端口一起改掉。
 
 同时脚本支持自动执行 Komari 探针安装。执行形式等价于：
 
@@ -87,7 +105,7 @@ bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery 
 建议重点检查下面 4 项：
 
 ```bash
-LOCAL_SERVER_PORT="" # 面板分配的端口，多个端口用空格分隔
+LOCAL_SERVER_PORT="8000" # 根目录默认按 Koyeb 单端口预置；面板环境可改成自己的端口
 LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh" # Komari 官方安装脚本地址
 LOCAL_KOMARI_ENDPOINT="https://komari.example.com" # Komari 服务端地址示例，请改成你自己的地址
 LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN="" # Komari 自动发现 token
