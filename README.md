@@ -5,6 +5,10 @@
 - 单端口模式：`HY2 + Argo`（可在脚本中切换为 `TUIC + Argo`）
 - 多端口模式：`TUIC + HY2 + Reality + Argo`
 
+如果你准备部署到 Koyeb，可直接查看单独整理的说明文档：
+
+- [README.Koyeb.md](./README.Koyeb.md)
+
 同时脚本支持自动执行 Komari 探针安装。执行形式等价于：
 
 ```bash
