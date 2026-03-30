@@ -11,6 +11,7 @@ const LOCAL_PANEL_PORT = '';
 const LOCAL_KOMARI_ENDPOINT = 'https://komari.example.com';
 const LOCAL_KOMARI_TOKEN = '';
 const LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN = '';
+const MAX_LOG_DISPLAY_LENGTH = 15000;
 
 const ENDPOINT = process.env.KOMARI_ENDPOINT || LOCAL_KOMARI_ENDPOINT;
 const TOKEN = process.env.KOMARI_TOKEN || LOCAL_KOMARI_TOKEN;
@@ -30,7 +31,7 @@ try {
 }
 
 const logPath = path.join(workDir, 'agent.log');
-let agentExitCode = '准备启动';
+let agentStatus = '准备启动';
 
 function getPanelPort() {
   const rawPort = process.env.PORT || process.env.SERVER_PORT || LOCAL_PANEL_PORT || '8080';
@@ -164,7 +165,7 @@ function safeSpawn(bin, args, options) {
     const message = `\n[Panel] 进程致命异常: ${error.message}\n`;
     appendLog(message);
     console.error(message);
-    agentExitCode = '启动失败';
+    agentStatus = '启动失败';
     return null;
   }
 
@@ -188,19 +189,19 @@ function safeSpawn(bin, args, options) {
     const message = `\n[Panel] 异步启动异常: ${error.message}\n`;
     appendLog(message);
     console.error(message);
-    agentExitCode = '启动失败';
+    agentStatus = '启动失败';
   });
 
   child.on('exit', (code, signal) => {
     const message = `\n[Panel] 探针进程已退出! Exit Code: ${code}, Signal: ${signal}\n`;
     appendLog(message);
     console.log(message);
-    agentExitCode = `已退出 (状态码: ${code}, 信号: ${signal})`;
+    agentStatus = `已退出 (状态码: ${code}, 信号: ${signal})`;
   });
 
   if (child.pid) {
     console.log(`[Web Panel] 核心探针已投入运行 (PID: ${child.pid})。`);
-    agentExitCode = '运行中';
+    agentStatus = '运行中';
   }
 
   try {
@@ -214,13 +215,13 @@ function safeSpawn(bin, args, options) {
 
 async function startAgent() {
   if (!TOKEN && !AUTO_DISCOVERY_TOKEN) {
-    agentExitCode = '缺少 token';
+    agentStatus = '缺少 token';
     appendLog('[Panel] 未设置 KOMARI_TOKEN 或 KOMARI_AUTO_DISCOVERY_TOKEN\n');
     return;
   }
 
   if (!isValidEndpoint(ENDPOINT)) {
-    agentExitCode = '配置错误';
+    agentStatus = '配置错误';
     appendLog(`[Panel] KOMARI_ENDPOINT 格式无效: ${ENDPOINT}\n`);
     return;
   }
@@ -271,20 +272,20 @@ async function startAgent() {
     const message = `\n[Panel] 外部配置报错: ${error.message}\n`;
     appendLog(message);
     console.error(message);
-    agentExitCode = '启动失败';
+    agentStatus = '启动失败';
   }
 }
 
 const server = http.createServer((req, res) => {
   let text = '=========== Komari 控制台面板 ===========\n';
   text += `探针对接: ${ENDPOINT}\n`;
-  text += `底端状态: ${agentExitCode}\n`;
+  text += `底端状态: ${agentStatus}\n`;
   text += '------------------------------------------\n';
   text += '【探针底层真实输出跟踪】\n\n';
 
   if (fs.existsSync(logPath)) {
     const logs = fs.readFileSync(logPath, 'utf8');
-    text += logs ? logs.slice(-15000) : '监控引擎尚无标准输出返回...';
+    text += logs ? logs.slice(-MAX_LOG_DISPLAY_LENGTH) : '监控引擎尚无标准输出返回...';
   } else {
     text += '引擎挂载准备中...';
   }
