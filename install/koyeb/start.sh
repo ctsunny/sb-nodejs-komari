@@ -1,0 +1,419 @@
+#!/bin/bash
+set -e
+
+# ================== 配置区域 ==================
+# 固定隧道填写token，不填默认为临时隧道
+ARGO_TOKEN=""
+
+# 单端口模式 UDP 协议选择: hy2 (默认) 或 tuic
+SINGLE_PORT_UDP="hy2"
+
+# 上传文件部署时可直接填写以下默认值；环境变量优先级更高
+LOCAL_SERVER_PORT="" # 面板分配的端口，多个端口用空格分隔
+LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh" # Komari 官方安装脚本地址
+LOCAL_KOMARI_ENDPOINT="https://komari.example.com" # Komari 服务端地址示例，请改成你自己的地址
+LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN="" # Komari 自动发现 token
+
+# ================== CF 优选域名列表 ==================
+CF_DOMAINS=(
+    "cf.090227.xyz"
+    "cf.877774.xyz"
+    "cf.130519.xyz"
+    "cf.008500.xyz"
+    "store.ubi.com"
+    "saas.sin.fan"
+)
+
+# ================== 切换到脚本目录 ==================
+cd "$(dirname "$0")"
+export FILE_PATH="${PWD}/.npm"
+
+KOMARI_INSTALL_URL="${KOMARI_INSTALL_URL:-$LOCAL_KOMARI_INSTALL_URL}"
+KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-$LOCAL_KOMARI_ENDPOINT}"
+KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-$LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN}"
+PORTS_STRING="${SERVER_PORT:-$LOCAL_SERVER_PORT}"
+
+[ -n "$FILE_PATH" ] || { echo "[错误] 运行目录无效"; exit 1; }
+if [ -d "$FILE_PATH" ]; then
+    find "$FILE_PATH" -mindepth 1 -maxdepth 1 ! -name 'auto-discovery.json' -exec rm -rf {} + || {
+        echo "[错误] 清理运行目录失败（权限不足或路径无效）: $FILE_PATH"
+        exit 1
+    }
+else
+    mkdir -p "$FILE_PATH"
+fi
+[ -n "$FILE_PATH" ] && [ -d "$FILE_PATH" ] && [ -w "$FILE_PATH" ] || { echo "[错误] 运行目录不可写: $FILE_PATH"; exit 1; }
+
+is_valid_komari_endpoint() {
+    [[ "$1" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[^[:space:]\"<>]*)?$ ]]
+}
+
+# ================== 获取公网 IP ==================
+echo "[网络] 获取公网 IP..."
+PUBLIC_IP=$(curl -s --max-time 5 ipv4.ip.sb || curl -s --max-time 5 api.ipify.org || echo "")
+[ -z "$PUBLIC_IP" ] && echo "[错误] 无法获取公网 IP" && exit 1
+echo "[网络] 公网 IP: $PUBLIC_IP"
+
+# ================== CF 优选：随机选择可用域名 ==================
+select_random_cf_domain() {
+    local available=()
+    for domain in "${CF_DOMAINS[@]}"; do
+        if curl -s --max-time 2 -o /dev/null "https://$domain" 2>/dev/null; then
+            available+=("$domain")
+        fi
+    done
+    [ ${#available[@]} -gt 0 ] && echo "${available[$((RANDOM % ${#available[@]}))]}" || echo "${CF_DOMAINS[0]}"
+}
+
+echo "[CF优选] 测试中..."
+BEST_CF_DOMAIN=$(select_random_cf_domain)
+echo "[CF优选] $BEST_CF_DOMAIN"
+
+# ================== 获取端口 ==================
+read -ra AVAILABLE_PORTS <<< "$PORTS_STRING"
+PORT_COUNT=${#AVAILABLE_PORTS[@]}
+[ $PORT_COUNT -eq 0 ] && echo "[错误] 未找到端口" && exit 1
+echo "[端口] 发现 $PORT_COUNT 个: ${AVAILABLE_PORTS[*]}"
+
+# ================== 端口分配逻辑 ==================
+if [ $PORT_COUNT -eq 1 ]; then
+    UDP_PORT=${AVAILABLE_PORTS[0]}
+    TUIC_PORT=""
+    HY2_PORT=""
+    [[ "$SINGLE_PORT_UDP" == "tuic" ]] && TUIC_PORT=$UDP_PORT || HY2_PORT=$UDP_PORT
+    REALITY_PORT=""
+    HTTP_PORT=${AVAILABLE_PORTS[0]}
+    SINGLE_PORT_MODE=true
+else
+    TUIC_PORT=${AVAILABLE_PORTS[0]}
+    HY2_PORT=${AVAILABLE_PORTS[1]}
+    REALITY_PORT=${AVAILABLE_PORTS[0]}
+    HTTP_PORT=${AVAILABLE_PORTS[1]}
+    SINGLE_PORT_MODE=false
+fi
+
+ARGO_PORT=8081
+
+# ================== UUID ==================
+UUID_FILE="${FILE_PATH}/uuid.txt"
+[ -f "$UUID_FILE" ] && UUID=$(cat "$UUID_FILE") || { UUID=$(cat /proc/sys/kernel/random/uuid); echo "$UUID" > "$UUID_FILE"; }
+echo "[UUID] $UUID"
+
+start_komari_agent_rootless() {
+    local os_name arch_name download_url komari_agent_file komari_log_file
+    is_valid_komari_endpoint "$KOMARI_ENDPOINT" || {
+        echo "[Komari] Endpoint 格式无效，跳过用户态启动"
+        return 1
+    }
+
+    case "$(uname -s)" in
+        Linux) os_name="linux" ;;
+        Darwin) os_name="darwin" ;;
+        FreeBSD) os_name="freebsd" ;;
+        *) echo "[Komari] 不支持的系统: $(uname -s)" && return 1 ;;
+    esac
+
+    case "$(uname -m)" in
+        x86_64) arch_name="amd64" ;;
+        aarch64|arm64) arch_name="arm64" ;;
+        i386|i686) arch_name="386" ;;
+        armv7*|armv6*) arch_name="arm" ;;
+        *) echo "[Komari] 不支持的架构: $(uname -m)" && return 1 ;;
+    esac
+
+    komari_agent_file="${FILE_PATH}/komari-agent"
+    komari_log_file="${FILE_PATH}/komari-agent.log"
+    download_url="https://github.com/komari-monitor/komari-agent/releases/latest/download/komari-agent-${os_name}-${arch_name}"
+
+    echo "[Komari] 检测到非 root 环境，改为用户态启动..."
+    echo "[下载] ${komari_agent_file}..."
+    if ! curl -L -fsS --max-time 60 -o "$komari_agent_file" "$download_url"; then
+        echo "[Komari] 用户态探针下载失败，继续启动主程序"
+        return 1
+    fi
+
+    chmod +x "$komari_agent_file"
+    echo "[下载] ${komari_agent_file} 完成"
+
+    "$komari_agent_file" -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN" > "$komari_log_file" 2>&1 &
+    KOMARI_PID=$!
+    sleep 1
+
+    if kill -0 "$KOMARI_PID" 2>/dev/null; then
+        echo "[Komari] 自动探针已以用户态启动 PID: $KOMARI_PID"
+        return 0
+    fi
+
+    echo "[Komari] 用户态启动失败，继续启动主程序"
+    tail -n 20 "$komari_log_file" 2>/dev/null || true
+    return 1
+}
+
+# ================== Komari 自动探针 ==================
+if [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
+    if ! is_valid_komari_endpoint "$KOMARI_ENDPOINT"; then
+        echo "[Komari] Endpoint 格式无效，跳过自动探针安装"
+    elif [[ "$KOMARI_INSTALL_URL" =~ ^https://raw\.githubusercontent\.com/komari-monitor/komari-agent/[A-Za-z0-9._-]+/install\.sh$ ]]; then
+        echo "[Komari] 安装自动探针..."
+        if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
+            echo "[Komari] 自动探针已安装"
+        elif [ "$(id -u)" -ne 0 ]; then
+            start_komari_agent_rootless || true
+        else
+            echo "[Komari] 自动探针安装失败，继续启动主程序"
+        fi
+    else
+        echo "[Komari] 安装地址不受信任，跳过自动探针安装"
+    fi
+else
+    echo "[Komari] 未设置 KOMARI_AUTO_DISCOVERY_TOKEN，跳过自动探针安装"
+fi
+
+# ================== 架构检测 & 下载 ==================
+ARCH=$(uname -m)
+[[ "$ARCH" == "aarch64" ]] && BASE_URL="https://arm64.ssss.nyc.mn" || BASE_URL="https://amd64.ssss.nyc.mn"
+[[ "$ARCH" == "aarch64" ]] && ARGO_ARCH="arm64" || ARGO_ARCH="amd64"
+
+SB_FILE="${FILE_PATH}/sb"
+ARGO_FILE="${FILE_PATH}/cloudflared"
+
+download_file() {
+    local url=$1 output=$2
+    [ -x "$output" ] && return 0
+    echo "[下载] $output..."
+    curl -L -sS --max-time 60 -o "$output" "$url" && chmod +x "$output" && echo "[下载] $output 完成" && return 0
+    echo "[下载] $output 失败" && return 1
+}
+
+download_file "${BASE_URL}/sb" "$SB_FILE"
+download_file "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARGO_ARCH}" "$ARGO_FILE"
+
+# ================== Reality 密钥 ==================
+if [ "$SINGLE_PORT_MODE" = false ]; then
+    echo "[密钥] 检查中..."
+    KEY_FILE="${FILE_PATH}/key.txt"
+    if [ -f "$KEY_FILE" ]; then
+        private_key=$(grep "PrivateKey:" "$KEY_FILE" | awk '{print $2}')
+        public_key=$(grep "PublicKey:" "$KEY_FILE" | awk '{print $2}')
+    else
+        output=$("$SB_FILE" generate reality-keypair)
+        echo "$output" > "$KEY_FILE"
+        private_key=$(echo "$output" | awk '/PrivateKey:/ {print $2}')
+        public_key=$(echo "$output" | awk '/PublicKey:/ {print $2}')
+    fi
+    echo "[密钥] 已就绪"
+fi
+
+# ================== 证书生成 ==================
+echo "[证书] 生成中..."
+# 优先使用 OpenSSL 生成标准证书
+if command -v openssl >/dev/null 2>&1; then
+    openssl req -x509 -newkey rsa:2048 -nodes -sha256 -keyout "${FILE_PATH}/private.key" -out "${FILE_PATH}/cert.pem" -days 3650 -subj "/CN=www.bing.com" >/dev/null 2>&1
+else
+    # 备用
+    printf -- "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIM4792SEtPqIt1ywqTd/0bYidBqpYV/+siNnfBYsdUYsoAoGCCqGSM49\nAwEHoUQDQgAE1kHafPj07rJG+HboH2ekAI4r+e6TL38GWASAnngZreoQDF16ARa/\nTsyLyFoPkhTxSbehH/OBEjHtSZGaDhMqQ==\n-----END EC PRIVATE KEY-----\n" > "${FILE_PATH}/private.key"
+
+    printf -- "-----BEGIN CERTIFICATE-----\nMIIBejCCASGgAwIBAgIUFWeQL3556PNJLp/veCFxGNj9crkwCgYIKoZIzj0EAwIw\nEzERMA8GA1UEAwwIYmluZy5jb20wHhcNMjUwMTAxMDEwMTAwWhcNMzUwMTAxMDEw\nMTAwWjATMREwDwYDVQQDDAhiaW5nLmNvbTBZMBMGByqGSM49AgEGCCqGSM49AwEH\nA0IABNZB2nz49O6yRvh26B9npACOK/nuky9/BlgEgJ54Ga3qEAxdegEWv07Mi8ha\nD5IU8Um3oR/zgRIx7UmRmg4TKkOjUzBRMB0GA1UdDgQWBBTV1cFID7UISE7PLTBR\nBfGbgrkMNzAfBgNVHSMEGDAWgBTV1cFID7UISE7PLTBRBfGbgrkMNzAPBgNVHRMB\nAf8EBTADAQH/MAoGCCqGSM49BAMCA0cAMEQCIARDAJvg0vd/ytrQVvEcSm6XTlB+\neQ6OFb9LbLYL9Zi+AiB+foMbi4y/0YUQlTtz7as9S8/lciBF5VCUoVIKS+vX2g==\n-----END CERTIFICATE-----\n" > "${FILE_PATH}/cert.pem"
+fi
+echo "[证书] 已就绪"
+
+# ===== ISP =====
+ISP="Node"
+if [ "$CURL_AVAILABLE" = true ]; then
+    JSON_DATA=$(curl -s --max-time 2 -H "Referer: https://speed.cloudflare.com/" https://speed.cloudflare.com/meta 2>/dev/null)
+    if [ -n "$JSON_DATA" ]; then
+        ORG=$(echo "$JSON_DATA" | sed -n 's/.*"asOrganization":"\([^"]*\)".*/\1/p')
+        CITY=$(echo "$JSON_DATA" | sed -n 's/.*"city":"\([^"]*\)".*/\1/p')
+        if [ -n "$ORG" ] && [ -n "$CITY" ]; then
+            ISP="${ORG}-${CITY}"
+        fi
+    fi
+fi
+[ -z "$ISP" ] && ISP="Node"
+
+# ================== 生成订阅 ==================
+generate_sub() {
+    local argo_domain="$1"
+    > "${FILE_PATH}/list.txt"
+    
+    # TUIC (UDP)
+    [ -n "$TUIC_PORT" ] && echo "tuic://${UUID}:admin@${PUBLIC_IP}:${TUIC_PORT}?sni=www.bing.com&alpn=h3&congestion_control=bbr&allowInsecure=1#TUIC-${ISP}" >> "${FILE_PATH}/list.txt"
+    
+    # HY2 (UDP)
+    [ -n "$HY2_PORT" ] && echo "hysteria2://${UUID}@${PUBLIC_IP}:${HY2_PORT}/?sni=www.bing.com&insecure=1#Hysteria2-${ISP}" >> "${FILE_PATH}/list.txt"
+    
+    # Reality (TCP)
+    [ -n "$REALITY_PORT" ] && echo "vless://${UUID}@${PUBLIC_IP}:${REALITY_PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.nazhumi.com&fp=chrome&pbk=${public_key}&type=tcp#Reality-${ISP}" >> "${FILE_PATH}/list.txt"
+    
+    # Argo VLESS
+    [ -n "$argo_domain" ] && echo "vless://${UUID}@${BEST_CF_DOMAIN}:443?encryption=none&security=tls&sni=${argo_domain}&type=ws&host=${argo_domain}&path=%2F${UUID}-vless#Argo-${ISP}" >> "${FILE_PATH}/list.txt"
+
+    cat "${FILE_PATH}/list.txt" > "${FILE_PATH}/sub.txt"
+}
+
+# ================== HTTP 服务器脚本 ==================
+cat > "${FILE_PATH}/server.js" <<JSEOF
+const http = require('http');
+const fs = require('fs');
+const port = process.argv[2] || 8080;
+const bind = process.argv[3] || '0.0.0.0';
+http.createServer((req, res) => {
+    if (req.url.includes('/sub') || req.url.includes('/${UUID}')) {
+        res.writeHead(200, {'Content-Type': 'text/plain; charset=utf-8'});
+        try { res.end(fs.readFileSync('${FILE_PATH}/sub.txt', 'utf8')); } catch(e) { res.end('error'); }
+    } else { res.writeHead(404); res.end('404'); }
+}).listen(port, bind, () => console.log('HTTP on ' + bind + ':' + port));
+JSEOF
+
+# ================== 启动 HTTP 订阅服务 ==================
+echo "[HTTP] 启动订阅服务 (端口 $HTTP_PORT)..."
+node "${FILE_PATH}/server.js" $HTTP_PORT 0.0.0.0 &
+HTTP_PID=$!
+sleep 1
+echo "[HTTP] 订阅服务已启动"
+
+# ================== 生成 sing-box 配置 ==================
+echo "[CONFIG] 生成配置..."
+
+INBOUNDS=""
+
+# TUIC (UDP)
+if [ -n "$TUIC_PORT" ]; then
+    INBOUNDS="{
+        \"type\": \"tuic\",
+        \"tag\": \"tuic-in\",
+        \"listen\": \"::\",
+        \"listen_port\": ${TUIC_PORT},
+        \"users\": [{\"uuid\": \"${UUID}\", \"password\": \"admin\"}],
+        \"congestion_control\": \"bbr\",
+        \"tls\": {
+            \"enabled\": true,
+            \"alpn\": [\"h3\"],
+            \"certificate_path\": \"${FILE_PATH}/cert.pem\",
+            \"key_path\": \"${FILE_PATH}/private.key\"
+        }
+    }"
+fi
+
+# HY2 (UDP)
+if [ -n "$HY2_PORT" ]; then
+    [ -n "$INBOUNDS" ] && INBOUNDS="${INBOUNDS},"
+    INBOUNDS="${INBOUNDS}{
+        \"type\": \"hysteria2\",
+        \"tag\": \"hy2-in\",
+        \"listen\": \"::\",
+        \"listen_port\": ${HY2_PORT},
+        \"users\": [{\"password\": \"${UUID}\"}],
+        \"tls\": {
+            \"enabled\": true,
+            \"alpn\": [\"h3\"],
+            \"certificate_path\": \"${FILE_PATH}/cert.pem\",
+            \"key_path\": \"${FILE_PATH}/private.key\"
+        }
+    }"
+fi
+
+# VLESS Reality (TCP)
+if [ -n "$REALITY_PORT" ]; then
+    INBOUNDS="${INBOUNDS},{
+        \"type\": \"vless\",
+        \"tag\": \"vless-reality-in\",
+        \"listen\": \"::\",
+        \"listen_port\": ${REALITY_PORT},
+        \"users\": [{\"uuid\": \"${UUID}\", \"flow\": \"xtls-rprx-vision\"}],
+        \"tls\": {
+            \"enabled\": true,
+            \"server_name\": \"www.nazhumi.com\",
+            \"reality\": {
+                \"enabled\": true,
+                \"handshake\": {\"server\": \"www.nazhumi.com\", \"server_port\": 443},
+                \"private_key\": \"${private_key}\",
+                \"short_id\": [\"\"]
+            }
+        }
+    }"
+fi
+
+# VLESS for Argo
+INBOUNDS="${INBOUNDS},{
+    \"type\": \"vless\",
+    \"tag\": \"vless-argo-in\",
+    \"listen\": \"127.0.0.1\",
+    \"listen_port\": ${ARGO_PORT},
+    \"users\": [{\"uuid\": \"${UUID}\"}],
+    \"transport\": {
+        \"type\": \"ws\",
+        \"path\": \"/${UUID}-vless\"
+    }
+}"
+
+cat > "${FILE_PATH}/config.json" <<CFGEOF
+{
+    "log": {"level": "warn"},
+    "inbounds": [${INBOUNDS}],
+    "outbounds": [{"type": "direct", "tag": "direct"}]
+}
+CFGEOF
+echo "[CONFIG] 配置已生成"
+
+# ================== 启动 sing-box ==================
+echo "[SING-BOX] 启动中..."
+"$SB_FILE" run -c "${FILE_PATH}/config.json" &
+SB_PID=$!
+sleep 2
+
+if ! kill -0 $SB_PID 2>/dev/null; then
+    echo "[SING-BOX] 启动失败"
+    head -n 2 "${FILE_PATH}/private.key"
+    "$SB_FILE" run -c "${FILE_PATH}/config.json"
+    exit 1
+fi
+echo "[SING-BOX] 已启动 PID: $SB_PID"
+
+# ================== [修复] Argo 隧道 ==================
+ARGO_LOG="${FILE_PATH}/argo.log"
+ARGO_DOMAIN=""
+
+echo "[Argo] 启动隧道 (HTTP2模式)..."
+"$ARGO_FILE" tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --url http://127.0.0.1:${ARGO_PORT} > "$ARGO_LOG" 2>&1 &
+ARGO_PID=$!
+
+for i in {1..30}; do
+    sleep 1
+    ARGO_DOMAIN=$(grep -oE 'https://[a-zA-Z0-9-]+\.trycloudflare\.com' "$ARGO_LOG" 2>/dev/null | head -1 | sed 's|https://||')
+    [ -n "$ARGO_DOMAIN" ] && break
+done
+[ -n "$ARGO_DOMAIN" ] && echo "[Argo] 域名: $ARGO_DOMAIN" || echo "[Argo] 获取域名失败"
+
+# ================== 生成订阅 ==================
+generate_sub "$ARGO_DOMAIN"
+
+# ================== 确定订阅链接 ==================
+SUB_URL="http://${PUBLIC_IP}:${HTTP_PORT}/sub"
+
+# ================== 输出结果 ==================
+echo ""
+echo "==================================================="
+if [ "$SINGLE_PORT_MODE" = true ]; then
+    echo "模式: 单端口 (${SINGLE_PORT_UDP^^} + Argo)"
+    echo ""
+    echo "代理节点:"
+    [ -n "$HY2_PORT" ] && echo "  - HY2 (UDP): ${PUBLIC_IP}:${HY2_PORT}"
+    [ -n "$TUIC_PORT" ] && echo "  - TUIC (UDP): ${PUBLIC_IP}:${TUIC_PORT}"
+    [ -n "$ARGO_DOMAIN" ] && echo "  - Argo (WS): ${ARGO_DOMAIN}"
+else
+    echo "模式: 多端口 (TUIC + HY2 + Reality + Argo)"
+    echo ""
+    echo "代理节点:"
+    echo "  - TUIC (UDP): ${PUBLIC_IP}:${TUIC_PORT}"
+    echo "  - HY2 (UDP): ${PUBLIC_IP}:${HY2_PORT}"
+    echo "  - Reality (TCP): ${PUBLIC_IP}:${REALITY_PORT}"
+    [ -n "$ARGO_DOMAIN" ] && echo "  - Argo (WS): ${ARGO_DOMAIN}"
+fi
+echo ""
+echo "订阅链接: $SUB_URL"
+echo "==================================================="
+echo ""
+
+# ================== 保持运行 ==================
+wait $SB_PID
