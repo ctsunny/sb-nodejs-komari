@@ -4,6 +4,7 @@ set -e
 # ================== 配置区域 ==================
 LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh"
 LOCAL_KOMARI_ENDPOINT="https://komari.example.com"
+LOCAL_KOMARI_TOKEN=""
 LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
 
 cd "$(dirname "$0")"
@@ -12,6 +13,7 @@ KOMARI_WORK_DIR="${KOMARI_WORK_DIR:-$PWD}"
 FILE_PATH="${KOMARI_WORK_DIR}/.npm"
 KOMARI_INSTALL_URL="${KOMARI_INSTALL_URL:-$LOCAL_KOMARI_INSTALL_URL}"
 KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-$LOCAL_KOMARI_ENDPOINT}"
+KOMARI_TOKEN="${KOMARI_TOKEN:-$LOCAL_KOMARI_TOKEN}"
 KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-$LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN}"
 
 is_valid_komari_endpoint() {
@@ -38,6 +40,7 @@ prepare_workdir() {
 
 start_komari_agent_rootless() {
     local os_name arch_name download_url komari_agent_file komari_log_file pid_file
+    local -a komari_args
 
     case "$(uname -s)" in
         Linux) os_name="linux" ;;
@@ -73,7 +76,16 @@ start_komari_agent_rootless() {
     chmod +x "$komari_agent_file"
     echo "[下载] ${komari_agent_file} 完成"
 
-    "$komari_agent_file" -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN" > "$komari_log_file" 2>&1 &
+    if [ -n "$KOMARI_TOKEN" ]; then
+        komari_args=(-e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN")
+    elif [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
+        komari_args=(-e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN")
+    else
+        echo "[Komari] 未设置 token，跳过用户态启动"
+        return 1
+    fi
+
+    "$komari_agent_file" "${komari_args[@]}" > "$komari_log_file" 2>&1 &
     KOMARI_PID=$!
     echo "$KOMARI_PID" > "$pid_file"
     sleep 1
@@ -88,8 +100,8 @@ start_komari_agent_rootless() {
     return 1
 }
 
-[ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ] || {
-    echo "[错误] 未设置 KOMARI_AUTO_DISCOVERY_TOKEN"
+[ -n "$KOMARI_TOKEN" ] || [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ] || {
+    echo "[错误] 未设置 KOMARI_TOKEN 或 KOMARI_AUTO_DISCOVERY_TOKEN"
     exit 1
 }
 
@@ -107,9 +119,17 @@ prepare_workdir
 
 echo "[Komari] 开始安装，仅安装 Komari 探针..."
 
-if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
-    echo "[Komari] 官方安装脚本执行成功"
-    exit 0
+if [ -n "$KOMARI_TOKEN" ]; then
+    echo "[Komari] 检测到固定 token，优先使用客户端 token 模式..."
+    if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN"; then
+        echo "[Komari] 固定 token 探针已安装"
+        exit 0
+    fi
+else
+    if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
+        echo "[Komari] 官方安装脚本执行成功"
+        exit 0
+    fi
 fi
 
 echo "[Komari] 官方安装脚本执行失败，尝试用户态启动..."

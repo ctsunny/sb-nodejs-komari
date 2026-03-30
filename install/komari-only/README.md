@@ -25,13 +25,14 @@
 至少需要以下参数：
 
 - `KOMARI_ENDPOINT`
-- `KOMARI_AUTO_DISCOVERY_TOKEN`
+- `KOMARI_TOKEN` 或 `KOMARI_AUTO_DISCOVERY_TOKEN`
 
 如果不传环境变量，也可以直接修改脚本顶部默认值：
 
 ```bash
 LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh"
 LOCAL_KOMARI_ENDPOINT="https://komari.example.com"
+LOCAL_KOMARI_TOKEN=""
 LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
 ```
 
@@ -48,6 +49,14 @@ bash install/komari-only/install.sh
 ```bash
 KOMARI_ENDPOINT="https://your-komari.example.com" \
 KOMARI_AUTO_DISCOVERY_TOKEN="your-token" \
+bash install/komari-only/install.sh
+```
+
+如果你使用的是 Komari 后台已生成的客户端固定 token，也可以改为：
+
+```bash
+KOMARI_ENDPOINT="https://your-komari.example.com" \
+KOMARI_TOKEN="your-fixed-token" \
 bash install/komari-only/install.sh
 ```
 
@@ -90,6 +99,8 @@ https://raw.githubusercontent.com/komari-monitor/komari-agent/.../install.sh
 
 范围内的受信任地址。
 
+如果同时设置了 `KOMARI_TOKEN` 和 `KOMARI_AUTO_DISCOVERY_TOKEN`，脚本会优先使用固定 token。
+
 ### 2. 官方安装失败时自动回退
 
 如果官方脚本失败，当前分类会自动尝试：
@@ -119,10 +130,11 @@ https://raw.githubusercontent.com/komari-monitor/komari-agent/.../install.sh
 
 ## 常见问题
 
-### 1. 提示 `未设置 KOMARI_AUTO_DISCOVERY_TOKEN`
+### 1. 提示 `未设置 KOMARI_TOKEN 或 KOMARI_AUTO_DISCOVERY_TOKEN`
 
 说明你没有传入：
 
+- `KOMARI_TOKEN`
 - `KOMARI_AUTO_DISCOVERY_TOKEN`
 
 ### 2. 提示 `KOMARI_ENDPOINT 格式无效`

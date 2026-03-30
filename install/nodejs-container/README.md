@@ -40,6 +40,7 @@
 LOCAL_SERVER_PORT=""
 LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh"
 LOCAL_KOMARI_ENDPOINT="https://komari.example.com"
+LOCAL_KOMARI_TOKEN=""
 LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
 ```
 
@@ -52,7 +53,11 @@ LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
 如果还要自动安装 Komari，再额外填写：
 
 - `LOCAL_KOMARI_ENDPOINT`
+- `LOCAL_KOMARI_TOKEN`
+  - 可填写 Komari 后台生成的客户端固定 token
+  - 如果设置了它，会优先使用固定 token 模式
 - `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN`
+  - 仅当未设置 `LOCAL_KOMARI_TOKEN` 时才会使用
 
 #### 方式 B：在面板环境变量中填写
 
@@ -61,6 +66,7 @@ LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
 - `SERVER_PORT`
 - `KOMARI_INSTALL_URL`
 - `KOMARI_ENDPOINT`
+- `KOMARI_TOKEN`
 - `KOMARI_AUTO_DISCOVERY_TOKEN`
 
 并且要注意：
@@ -127,9 +133,12 @@ bash start.sh
 
 如果设置了：
 
+- `KOMARI_TOKEN`
 - `KOMARI_AUTO_DISCOVERY_TOKEN`
 
 脚本会自动尝试安装 Komari。
+
+如果同时设置了 `KOMARI_TOKEN` 和 `KOMARI_AUTO_DISCOVERY_TOKEN`，脚本会优先使用固定 token。
 
 ### root 环境
 
