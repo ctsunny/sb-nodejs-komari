@@ -68,10 +68,10 @@ bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery 
 建议重点检查下面 4 项：
 
 ```bash
-LOCAL_SERVER_PORT=""
-LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh"
-LOCAL_KOMARI_ENDPOINT="https://tz.1111155.xyz"
-LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
+LOCAL_SERVER_PORT="" # 面板分配的端口，多个端口用空格分隔
+LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh" # Komari 官方安装脚本地址
+LOCAL_KOMARI_ENDPOINT="https://komari.example.com" # Komari 服务端地址示例，请改成你自己的地址
+LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN="" # Komari 自动发现 token
 ```
 
 你需要根据自己的面板和 Komari 后台信息修改：
