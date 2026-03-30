@@ -12,6 +12,7 @@ SINGLE_PORT_UDP="hy2"
 LOCAL_SERVER_PORT="8000" # Koyeb 预置单端口默认值；其他环境可改成实际端口，多个端口用空格分隔
 LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh" # Komari 官方安装脚本地址
 LOCAL_KOMARI_ENDPOINT="https://komari.example.com" # Komari 服务端地址示例，请改成你自己的地址
+LOCAL_KOMARI_TOKEN="" # Komari 客户端固定 token
 LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN="" # Komari 自动发现 token
 
 # ================== CF 优选域名列表 ==================
@@ -30,6 +31,7 @@ export FILE_PATH="${PWD}/.npm"
 
 KOMARI_INSTALL_URL="${KOMARI_INSTALL_URL:-$LOCAL_KOMARI_INSTALL_URL}"
 KOMARI_ENDPOINT="${KOMARI_ENDPOINT:-$LOCAL_KOMARI_ENDPOINT}"
+KOMARI_TOKEN="${KOMARI_TOKEN:-$LOCAL_KOMARI_TOKEN}"
 KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-$LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN}"
 PORTS_STRING="${SERVER_PORT:-$LOCAL_SERVER_PORT}"
 
@@ -110,6 +112,7 @@ echo "[UUID] $UUID"
 
 start_komari_agent_rootless() {
     local os_name arch_name download_url komari_agent_file komari_log_file
+    local -a komari_args
     is_valid_komari_endpoint "$KOMARI_ENDPOINT" || {
         echo "[Komari] Endpoint 格式无效，跳过用户态启动"
         return 1
@@ -144,7 +147,13 @@ start_komari_agent_rootless() {
     chmod +x "$komari_agent_file"
     echo "[下载] ${komari_agent_file} 完成"
 
-    "$komari_agent_file" -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN" > "$komari_log_file" 2>&1 &
+    if [ -n "$KOMARI_TOKEN" ]; then
+        komari_args=(-e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN")
+    else
+        komari_args=(-e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN")
+    fi
+
+    "$komari_agent_file" "${komari_args[@]}" > "$komari_log_file" 2>&1 &
     KOMARI_PID=$!
     sleep 1
 
@@ -159,23 +168,34 @@ start_komari_agent_rootless() {
 }
 
 # ================== Komari 自动探针 ==================
-if [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
+if [ -n "$KOMARI_TOKEN" ] || [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
     if ! is_valid_komari_endpoint "$KOMARI_ENDPOINT"; then
         echo "[Komari] Endpoint 格式无效，跳过自动探针安装"
     elif [[ "$KOMARI_INSTALL_URL" =~ ^https://raw\.githubusercontent\.com/komari-monitor/komari-agent/[A-Za-z0-9._-]+/install\.sh$ ]]; then
-        echo "[Komari] 安装自动探针..."
-        if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
-            echo "[Komari] 自动探针已安装"
-        elif [ "$(id -u)" -ne 0 ]; then
-            start_komari_agent_rootless || true
+        if [ -n "$KOMARI_TOKEN" ]; then
+            echo "[Komari] 检测到固定 token，优先使用客户端 token 模式..."
+            if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN"; then
+                echo "[Komari] 固定 token 探针已安装"
+            elif [ "$(id -u)" -ne 0 ]; then
+                start_komari_agent_rootless || true
+            else
+                echo "[Komari] 固定 token 探针安装失败，继续启动主程序"
+            fi
         else
-            echo "[Komari] 自动探针安装失败，继续启动主程序"
+            echo "[Komari] 安装自动探针..."
+            if bash <(curl --retry 3 --retry-delay 2 -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"; then
+                echo "[Komari] 自动探针已安装"
+            elif [ "$(id -u)" -ne 0 ]; then
+                start_komari_agent_rootless || true
+            else
+                echo "[Komari] 自动探针安装失败，继续启动主程序"
+            fi
         fi
     else
         echo "[Komari] 安装地址不受信任，跳过自动探针安装"
     fi
 else
-    echo "[Komari] 未设置 KOMARI_AUTO_DISCOVERY_TOKEN，跳过自动探针安装"
+    echo "[Komari] 未设置 KOMARI_TOKEN / KOMARI_AUTO_DISCOVERY_TOKEN，跳过自动探针安装"
 fi
 
 # ================== 架构检测 & 下载 ==================

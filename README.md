@@ -41,10 +41,17 @@
 默认情况下，不额外传 `SERVER_PORT` 也会使用内置的 `8000`。  
 如果你想换成别的端口，也可以显式设置 `SERVER_PORT`，但要同时把 Koyeb 暴露端口和健康检查端口一起改掉。
 
-同时脚本支持自动执行 Komari 探针安装。执行形式等价于：
+同时脚本支持自动执行 Komari 探针安装。  
+如果你填写的是自动发现 token，执行形式等价于：
 
 ```bash
 bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"
+```
+
+如果你想直接使用 Komari 后台已经生成好的客户端固定 token，则改为：
+
+```bash
+bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN"
 ```
 
 如果运行环境不是 root（例如常见的 Node.js 面板容器），官方安装脚本报错后，本仓库会自动回退为“下载 agent 二进制并以当前用户后台运行”，这样 `KOMARI_AUTO_DISCOVERY_TOKEN` 仍然可以生效，而不依赖 systemd/root 权限。
@@ -57,6 +64,7 @@ bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery 
 - `LOCAL_SERVER_PORT`
 - `LOCAL_KOMARI_ENDPOINT`
 - `LOCAL_KOMARI_INSTALL_URL`
+- `LOCAL_KOMARI_TOKEN`
 - `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN`
 
 环境变量仍然优先；只有未传入环境变量时，脚本才会使用这些本地默认值。这样你只需要上传 `index.js`、`package.json`、`start.sh` 这 3 个程序文件即可运行。
@@ -102,12 +110,13 @@ bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery 
 
 如果你使用的是面板上传部署，最简单的方法就是直接改 `start.sh` 顶部的本地默认值。
 
-建议重点检查下面 4 项：
+建议重点检查下面 5 项：
 
 ```bash
 LOCAL_SERVER_PORT="8000" # 根目录默认按 Koyeb 单端口预置；面板环境可改成自己的端口
 LOCAL_KOMARI_INSTALL_URL="https://raw.githubusercontent.com/komari-monitor/komari-agent/b1c863bacdb7bff478621b2eaf802e5eb19ad9c7/install.sh" # Komari 官方安装脚本地址
 LOCAL_KOMARI_ENDPOINT="https://komari.example.com" # Komari 服务端地址示例，请改成你自己的地址
+LOCAL_KOMARI_TOKEN="" # Komari 客户端固定 token
 LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN="" # Komari 自动发现 token
 ```
 
@@ -120,8 +129,12 @@ LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN="" # Komari 自动发现 token
 - `LOCAL_KOMARI_ENDPOINT`
   - 填你的 Komari 服务端地址
   - 例如：`https://your-komari.example.com`
+- `LOCAL_KOMARI_TOKEN`
+  - 可填写 Komari 后台生成的客户端固定 token
+  - 如果填写了它，脚本会优先使用 `-t`
 - `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN`
   - 填 Komari 后台生成的自动发现 token
+  - 仅当未设置 `LOCAL_KOMARI_TOKEN` 时才会使用
 - `LOCAL_KOMARI_INSTALL_URL`
   - 一般不要乱改
   - 只有你明确知道自己在做什么时才覆盖
@@ -131,6 +144,7 @@ LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN="" # Komari 自动发现 token
 
 - `SERVER_PORT`
 - `KOMARI_ENDPOINT`
+- `KOMARI_TOKEN`
 - `KOMARI_AUTO_DISCOVERY_TOKEN`
 - `KOMARI_INSTALL_URL`
 
@@ -186,6 +200,13 @@ bash start.sh
 [Komari] 自动探针已安装
 ```
 
+或者如果你使用的是固定 token：
+
+```text
+[Komari] 检测到固定 token，优先使用客户端 token 模式...
+[Komari] 固定 token 探针已安装
+```
+
 这说明官方安装脚本执行成功，探针已经按官方方式装好。
 
 #### 情况 B：非 root 环境，但已经自动回退成功
@@ -202,7 +223,8 @@ bash start.sh
 [Komari] 自动探针已以用户态启动 PID: 12345
 ```
 
-这说明虽然没有 systemd / root 权限，但探针已经作为当前用户在后台启动，依然可以完成自动发现。
+使用固定 token 时，最后一行日志同样会出现，只是实际连接参数会改为 `-t`。  
+这说明虽然没有 systemd / root 权限，但探针已经作为当前用户在后台启动。
 
 ## 探针安装成功经验总结
 
@@ -227,7 +249,7 @@ bash start.sh
 
 4. **最容易出错的是参数，而不是脚本逻辑**
    - `KOMARI_ENDPOINT` 写错
-   - `KOMARI_AUTO_DISCOVERY_TOKEN` 填错
+   - `KOMARI_TOKEN` 或 `KOMARI_AUTO_DISCOVERY_TOKEN` 填错
    - 面板没有放行网络
    - 容器里没有 `curl`
    - 这些情况比“脚本本身有问题”更常见
@@ -244,6 +266,7 @@ bash start.sh
 2. 只修改 `start.sh` 顶部的：
    - `LOCAL_SERVER_PORT`
    - `LOCAL_KOMARI_ENDPOINT`
+   - `LOCAL_KOMARI_TOKEN`
    - `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN`
 3. 上传这 3 个文件到项目目录
 4. 用 `npm start` 启动
@@ -268,6 +291,8 @@ bash start.sh
 
 如果未设置：
 
+- `KOMARI_TOKEN`
+- `LOCAL_KOMARI_TOKEN`
 - `KOMARI_AUTO_DISCOVERY_TOKEN`
 - 或 `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN`
 
@@ -302,22 +327,22 @@ bash start.sh
 - Node.js `>= 18`
 - 系统需要可用的 `bash`、`curl`
 - 需要通过环境变量 `SERVER_PORT` 传入端口，或在 `start.sh` 的 `LOCAL_SERVER_PORT` 中写入默认端口
-- 如需启用 Komari 自动探针，需要设置环境变量 `KOMARI_AUTO_DISCOVERY_TOKEN`，或在 `start.sh` 的 `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN` 中写入默认 token
+- 如需启用 Komari 探针，可以设置环境变量 `KOMARI_TOKEN`（固定 token）或 `KOMARI_AUTO_DISCOVERY_TOKEN`（自动发现 token），也可以在 `start.sh` 的 `LOCAL_KOMARI_TOKEN` / `LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN` 中写入默认值；如果两者同时存在，会优先使用固定 token
 - 在非 root 的面板环境中，Komari 会自动改为用户态后台运行，不再因为 installer 需要 root 而直接失效
 
 示例：
 
 ```bash
-KOMARI_AUTO_DISCOVERY_TOKEN="your-token" SERVER_PORT="3000" npm start
+KOMARI_TOKEN="your-fixed-token" SERVER_PORT="3000" npm start
 ```
 
 多端口示例：
 
 ```bash
-KOMARI_AUTO_DISCOVERY_TOKEN="your-token" SERVER_PORT="3000 3001" npm start
+KOMARI_AUTO_DISCOVERY_TOKEN="your-auto-discovery-token" SERVER_PORT="3000 3001" npm start
 ```
 
-如果未设置 `KOMARI_AUTO_DISCOVERY_TOKEN`，脚本会跳过 Komari 自动探针安装，但其余 sing-box / Argo 启动流程仍会继续。
+如果未设置 `KOMARI_TOKEN` 和 `KOMARI_AUTO_DISCOVERY_TOKEN`，脚本会跳过 Komari 自动探针安装，但其余 sing-box / Argo 启动流程仍会继续。
 
 ## 输出内容
 

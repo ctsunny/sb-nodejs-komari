@@ -141,14 +141,22 @@ npm start
 SERVER_PORT=8000
 ```
 
-如果你要启用 Komari，再额外填写：
+如果你要启用 Komari，再额外填写以下其中一种：
+
+```text
+KOMARI_ENDPOINT=https://你的-komari-地址
+KOMARI_TOKEN=你的客户端固定token
+```
+
+或者：
 
 ```text
 KOMARI_ENDPOINT=https://你的-komari-地址
 KOMARI_AUTO_DISCOVERY_TOKEN=你的自动发现token
 ```
 
-如果你不需要 Komari，可以不填这两个变量，脚本会自动跳过探针安装。
+如果你不需要 Komari，可以不填这些变量，脚本会自动跳过探针安装。  
+如果同时设置了 `KOMARI_TOKEN` 和 `KOMARI_AUTO_DISCOVERY_TOKEN`，脚本会优先使用固定 token。
 如果你已经成功自动发现过一次，脚本会保留 Komari agent 生成的 `auto-discovery.json`，后续 Koyeb 重启时会优先复用服务端分配的固定 token，避免因为 IP 或地区变化再次重新注册。
 
 ### 第 6 步：设置 Koyeb 暴露端口
@@ -232,12 +240,21 @@ SERVER_PORT=8000
 
 ## 六、如果你要启用 Komari
 
-额外设置：
+额外设置以下其中一种：
 
 ```text
 KOMARI_ENDPOINT=https://your-komari.example.com
-KOMARI_AUTO_DISCOVERY_TOKEN=your-token
+KOMARI_TOKEN=your-fixed-token
 ```
+
+或者：
+
+```text
+KOMARI_ENDPOINT=https://your-komari.example.com
+KOMARI_AUTO_DISCOVERY_TOKEN=your-auto-discovery-token
+```
+
+如果同时设置了 `KOMARI_TOKEN` 和 `KOMARI_AUTO_DISCOVERY_TOKEN`，脚本会优先使用固定 token。
 
 成功时日志可能出现：
 
@@ -277,7 +294,7 @@ KOMARI_AUTO_DISCOVERY_TOKEN=your-token
 检查：
 
 1. `KOMARI_ENDPOINT` 是否带有 `http://` 或 `https://`
-2. `KOMARI_AUTO_DISCOVERY_TOKEN` 是否正确
+2. `KOMARI_TOKEN` 或 `KOMARI_AUTO_DISCOVERY_TOKEN` 是否正确
 3. 容器是否允许访问外网并下载 agent
 
 ### 4. `npm start` 失败
