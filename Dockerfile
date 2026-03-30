@@ -29,7 +29,11 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends bash curl ca-certificates openssl; \
     rm -rf /var/lib/apt/lists/*
 
-COPY package.json index.js start.sh ./
+COPY package.json ./
+
+RUN npm install --omit=dev
+
+COPY index.js start.sh ./
 
 RUN chmod +x start.sh
 
