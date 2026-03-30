@@ -4,9 +4,10 @@
 
 - 面板只允许上传 `index.js` / `package.json`
 - 面板启动命令只能写 `npm start`
-- 你只想把节点接入 Komari，不需要同时运行 sing-box / Argo / HTTP 订阅
+- 面板不支持上传 `start.sh`，但运行环境本身仍然有 `bash`
+- 你需要节点功能（sing-box / Argo / `/sub`），同时也希望继续接入 Komari
 
-> 说明：这个版本是按“纯 Node.js 下载并启动 `komari-agent`”的思路单独做的一套特殊版本，目的就是避开 `start.sh` 上传限制。
+> 说明：这个版本的入口仍然只有 `index.js` + `package.json`，但会优先在运行时落地并执行仓库里的完整 `start.sh`，从而避开“不能上传 `start.sh`”的限制。
 
 ## 对应安装代码
 
@@ -19,16 +20,18 @@
 
 ## 功能说明
 
-这个版本只做 2 件事：
+这个版本默认优先做 1 件事：
+
+1. 运行时自动落地完整节点脚本，并启动：
+   - sing-box
+   - Argo
+   - `/sub` 订阅服务
+   - Komari 自动探针（如果已配置 token）
+
+如果完整节点模式因为环境缺少 `bash`，或启动时立即失败，则会自动回退到旧的纯 Komari 模式：
 
 1. 下载并启动 `komari-agent`
 2. 在当前 Node.js 端口上输出一个纯文本控制台面板，方便看探针日志
-
-它**不会**启动：
-
-- sing-box
-- Argo
-- `/sub` 订阅服务
 
 ## 参数配置
 
@@ -57,19 +60,38 @@ const LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN = '';
   - 自动发现 token
   - 仅当未设置 `LOCAL_KOMARI_TOKEN` 时使用
 
+完整节点模式里，Argo / sing-box 的默认值沿用仓库主版本脚本；如果你要改默认 `ARGO_TOKEN`、`SINGLE_PORT_UDP` 等参数，建议直接在面板环境变量里传入。
+
 ### 方式 B：在面板环境变量中填写
 
 可用环境变量：
 
 - `PORT`
 - `SERVER_PORT`
+- `ARGO_TOKEN`
+- `SINGLE_PORT_UDP`
 - `KOMARI_ENDPOINT`
 - `KOMARI_TOKEN`
 - `KOMARI_AUTO_DISCOVERY_TOKEN`
+- `NO_STARTSH_FULL_RUNTIME`
+- `NO_STARTSH_RUNTIME_URL`
 
 并且要注意：
 
 > 环境变量优先级高于 `index.js` 顶部默认值。
+
+其中：
+
+- `ARGO_TOKEN`
+  - 不填时默认临时隧道
+- `SINGLE_PORT_UDP`
+  - 单端口 UDP 协议，支持 `hy2` / `tuic`
+- `NO_STARTSH_FULL_RUNTIME`
+  - 设为 `1` / `true` / `yes` 时，强制关闭完整节点模式，只保留旧的纯 Komari 文本面板
+- `NO_STARTSH_RUNTIME_URL`
+  - 可选，自定义完整节点脚本下载地址
+  - 仅接受当前仓库 `raw.githubusercontent.com/ctsunny/sb-nodejs-komari/.../install/nodejs-container/start.sh` 形式的地址
+  - 建议使用你信任的提交哈希、标签名，或不含 `/` 的分支名
 
 ## 上传与启动
 
@@ -87,8 +109,13 @@ npm start
 ## 运行要求
 
 - Node.js `>= 18`
+- 完整节点模式需要 `bash`
 - 运行环境允许访问外网
 - 运行环境允许访问 GitHub Releases
+- 如果部署时目录里不存在 `start.sh`，还需要允许访问：
+  - `https://raw.githubusercontent.com`
+
+如果环境没有 `bash`，脚本会自动回退到旧的纯 Komari 文本面板。
 
 ## 工作目录说明
 
@@ -103,12 +130,30 @@ npm start
 - `agent.log`
 - `task_时间戳`
 - `auto-discovery.json`（由 `komari-agent` 自己生成）
+- `full-runtime/start.sh`（完整节点模式运行时落地的脚本）
 
 脚本启动时会清理旧的 `task_*` 文件，但不会主动清理 `auto-discovery.json`，这样自动发现成功后，后续重启仍然可以继续复用服务端已分配的信息。
 
 ## 面板访问说明
 
-服务启动后，访问：
+### 完整节点模式
+
+服务启动后，优先按完整节点模式工作。健康检查建议直接检查：
+
+```text
+/sub
+```
+
+你最终会得到：
+
+- 节点协议
+- Argo 隧道
+- `/sub` 订阅
+- Komari 自动探针
+
+### 回退后的纯 Komari 模式
+
+如果完整节点模式没有拉起，才会回退到旧的文本面板。此时访问：
 
 ```text
 http://你的IP:PORT/
@@ -126,7 +171,7 @@ http://你的IP:PORT/
 /
 ```
 
-因为这个特殊版本本身不提供 `/sub`。
+因为回退模式本身不提供 `/sub`。
 
 ## 常见问题
 
