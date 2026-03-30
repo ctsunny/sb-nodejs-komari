@@ -5,7 +5,20 @@
 - 单端口模式：`HY2 + Argo`（可在脚本中切换为 `TUIC + Argo`）
 - 多端口模式：`TUIC + HY2 + Reality + Argo`
 
-如果你准备部署到 Koyeb，可直接查看单独整理的说明文档：
+## 项目分类目录
+
+为了方便按不同容器 / 使用场景选择安装方式，仓库现在额外整理了 3 个分类目录：
+
+- [install/nodejs-container](./install/nodejs-container/README.md)：适合普通 Node.js 容器、面板上传、PM2 / 宝塔 / 1Panel 这类环境
+- [install/koyeb](./install/koyeb/README.md)：适合 Koyeb `Web Service`
+- [install/komari-only](./install/komari-only/README.md)：只安装 Komari 探针，不启动 sing-box / Argo
+
+其中：
+
+- 仓库根目录仍然保留**完整版主程序**
+- `install/komari-only` 提供了独立的仅安装 Komari 脚本
+
+如果你准备部署到 Koyeb，也可以继续查看原有单独整理的说明文档：
 
 - [README.Koyeb.md](./README.Koyeb.md)
 
