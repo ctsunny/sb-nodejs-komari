@@ -34,8 +34,8 @@ KOMARI_AUTO_DISCOVERY_TOKEN="${KOMARI_AUTO_DISCOVERY_TOKEN:-$LOCAL_KOMARI_AUTO_D
 PORTS_STRING="${SERVER_PORT:-$LOCAL_SERVER_PORT}"
 
 [ -n "$FILE_PATH" ] || { echo "[错误] 运行目录无效"; exit 1; }
-rm -rf "$FILE_PATH"
 mkdir -p "$FILE_PATH"
+find "$FILE_PATH" -mindepth 1 -maxdepth 1 ! -name 'auto-discovery.json' -exec rm -rf {} +
 [ -n "$FILE_PATH" ] && [ -d "$FILE_PATH" ] && [ -w "$FILE_PATH" ] || { echo "[错误] 运行目录不可写: $FILE_PATH"; exit 1; }
 
 is_valid_komari_endpoint() {

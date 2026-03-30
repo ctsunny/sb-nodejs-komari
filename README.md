@@ -15,7 +15,8 @@
 bash <(curl -fsSL "$KOMARI_INSTALL_URL") -e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN"
 ```
 
-如果运行环境不是 root（例如常见的 Node.js 面板容器），官方安装脚本报错后，本仓库会自动回退为“下载 agent 二进制并以当前用户后台运行”，这样 `KOMARI_AUTO_DISCOVERY_TOKEN` 仍然可以生效，而不依赖 systemd/root 权限。
+如果运行环境不是 root（例如常见的 Node.js 面板容器），官方安装脚本报错后，本仓库会自动回退为“下载 agent 二进制并以当前用户后台运行”，这样 `KOMARI_AUTO_DISCOVERY_TOKEN` 仍然可以生效，而不依赖 systemd/root 权限。  
+同时脚本现在会保留 rootless Komari agent 首次注册后生成的 `auto-discovery.json`，这样容器重启后会优先复用服务端已分配的固定 token，而不是重新自动发现。
 
 默认情况下，脚本内置了一个固定的 Komari 安装脚本地址；如需覆盖 `KOMARI_INSTALL_URL`，请保持为 `https://raw.githubusercontent.com/komari-monitor/komari-agent/` 下的受信任地址，否则脚本会拒绝执行。
 
