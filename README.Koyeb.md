@@ -12,7 +12,7 @@ Error: Command failed: bash start.sh
 当前仓库的启动流程是：
 
 1. `npm start`
-2. 执行 `/home/runner/work/sb-nodejs-komari/sb-nodejs-komari/index.js`
+2. 执行仓库根目录下的 `index.js`
 3. `index.js` 再调用 `bash start.sh`
 4. `start.sh` 从环境变量 `SERVER_PORT` 或脚本顶部的 `LOCAL_SERVER_PORT` 读取端口
 
