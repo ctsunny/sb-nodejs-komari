@@ -16,12 +16,12 @@ RUN set -eux; \
       return 1; \
     }; \
     switch_to_archive_mirror() { \
+      codename="$(. /etc/os-release && printf '%s' "$VERSION_CODENAME")"; \
       if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
-        sed -i 's|http://deb.debian.org/debian|http://archive.debian.org/debian|g; s|http://deb.debian.org/debian-security|http://archive.debian.org/debian-security|g' /etc/apt/sources.list.d/debian.sources; \
+        printf 'Types: deb\nURIs: http://archive.debian.org/debian\nSuites: %s\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' "$codename" > /etc/apt/sources.list.d/debian.sources; \
       fi; \
       if [ -f /etc/apt/sources.list ]; then \
-        sed -i 's|http://deb.debian.org/debian|http://archive.debian.org/debian|g; s|http://deb.debian.org/debian-security|http://archive.debian.org/debian-security|g' /etc/apt/sources.list; \
-        sed -i '/-updates/d' /etc/apt/sources.list; \
+        printf 'deb http://archive.debian.org/debian %s main\n' "$codename" > /etc/apt/sources.list; \
       fi; \
       printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99debian-archive-no-check-valid; \
     }; \
