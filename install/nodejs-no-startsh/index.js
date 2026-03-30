@@ -117,7 +117,7 @@ function cleanOldTasks() {
 
 function downloadFileStrongly(url, dest, redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
-    const transport = url.startsWith('http://') ? require('http') : https;
+    const transport = url.startsWith('http://') ? http : https;
     const req = transport.get(url, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         if (redirectsLeft <= 0) {
@@ -279,7 +279,7 @@ async function startAgent() {
 const server = http.createServer((req, res) => {
   let text = '=========== Komari 控制台面板 ===========\n';
   text += `探针对接: ${ENDPOINT}\n`;
-  text += `底端状态: ${agentStatus}\n`;
+  text += `探针状态: ${agentStatus}\n`;
   text += '------------------------------------------\n';
   text += '【探针底层真实输出跟踪】\n\n';
 
