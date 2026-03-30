@@ -44,6 +44,15 @@ else
 fi
 [ -n "$FILE_PATH" ] && [ -d "$FILE_PATH" ] && [ -w "$FILE_PATH" ] || { echo "[错误] 运行目录不可写: $FILE_PATH"; exit 1; }
 
+cleanup() {
+    [ -n "${ARGO_PID:-}" ] && kill "${ARGO_PID}" 2>/dev/null || true
+    [ -n "${SB_PID:-}" ] && kill "${SB_PID}" 2>/dev/null || true
+    [ -n "${HTTP_PID:-}" ] && kill "${HTTP_PID}" 2>/dev/null || true
+    [ -n "${KOMARI_PID:-}" ] && kill "${KOMARI_PID}" 2>/dev/null || true
+}
+
+trap cleanup EXIT
+
 is_valid_komari_endpoint() {
     [[ "$1" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[^[:space:]\"<>]*)?$ ]]
 }
