@@ -140,6 +140,7 @@ KOMARI_AUTO_DISCOVERY_TOKEN=你的自动发现token
 ```
 
 如果你不需要 Komari，可以不填这两个变量，脚本会自动跳过探针安装。
+如果你已经成功自动发现过一次，脚本会保留 Komari agent 生成的 `auto-discovery.json`，后续 Koyeb 重启时会优先复用服务端分配的固定 token，避免因为 IP 或地区变化再次重新注册。
 
 ### 第 6 步：设置 Koyeb 暴露端口
 
