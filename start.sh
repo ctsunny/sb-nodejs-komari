@@ -149,8 +149,11 @@ start_komari_agent_rootless() {
 
     if [ -n "$KOMARI_TOKEN" ]; then
         komari_args=(-e "$KOMARI_ENDPOINT" -t "$KOMARI_TOKEN")
-    else
+    elif [ -n "$KOMARI_AUTO_DISCOVERY_TOKEN" ]; then
         komari_args=(-e "$KOMARI_ENDPOINT" --auto-discovery "$KOMARI_AUTO_DISCOVERY_TOKEN")
+    else
+        echo "[Komari] 未设置 token，跳过用户态启动"
+        return 1
     fi
 
     "$komari_agent_file" "${komari_args[@]}" > "$komari_log_file" 2>&1 &
