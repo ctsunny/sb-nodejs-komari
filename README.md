@@ -5,7 +5,21 @@
 - 单端口模式：`HY2 + Argo`（可在脚本中切换为 `TUIC + Argo`）
 - 多端口模式：`TUIC + HY2 + Reality + Argo`
 
-如果你准备部署到 Koyeb，可直接查看单独整理的说明文档：
+## 预置分支目录
+
+为了方便你后续手动拆成不同分支，仓库现在把不同容器 / 使用场景对应的内容先放在 `main` 里的单独目录：
+
+- [install/nodejs-container](./install/nodejs-container/README.md)：通用 Node.js 容器 / 面板分支预置目录
+- [install/koyeb](./install/koyeb/README.md)：Koyeb 分支预置目录
+- [install/komari-only](./install/komari-only/README.md)：仅安装 Komari 分支预置目录
+
+这些目录的用途是：
+
+- 先在 `main` 中集中存放不同分支对应的文件
+- 你后续可以把某个目录里的内容手动提取到对应分支根目录
+- 仓库根目录仍然保留当前完整版主程序
+
+如果你准备部署到 Koyeb，也可以继续查看原有单独整理的说明文档：
 
 - [README.Koyeb.md](./README.Koyeb.md)
 
