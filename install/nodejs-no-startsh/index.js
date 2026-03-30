@@ -13,7 +13,8 @@ const LOCAL_KOMARI_TOKEN = '';
 const LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN = '';
 const MAX_LOG_DISPLAY_LENGTH = 15000;
 const LOCAL_FULL_RUNTIME_SOURCE = path.join(__dirname, '..', 'nodejs-container', 'start.sh');
-const TRUSTED_FULL_RUNTIME_URL = 'https://raw.githubusercontent.com/ctsunny/sb-nodejs-komari/2f901d2a0fb74c72f636c2dc25025a2ddf1cc95f/install/nodejs-container/start.sh';
+const DEFAULT_FULL_RUNTIME_URL = 'https://raw.githubusercontent.com/ctsunny/sb-nodejs-komari/2f901d2a0fb74c72f636c2dc25025a2ddf1cc95f/install/nodejs-container/start.sh';
+const FULL_RUNTIME_URL = process.env.NO_STARTSH_RUNTIME_URL || DEFAULT_FULL_RUNTIME_URL;
 const FULL_RUNTIME_DISABLED = /^(1|true|yes)$/i.test(process.env.NO_STARTSH_FULL_RUNTIME || '');
 
 const ENDPOINT = process.env.KOMARI_ENDPOINT || LOCAL_KOMARI_ENDPOINT;
@@ -167,6 +168,85 @@ function hasBash() {
   }
 }
 
+function isTrustedFullRuntimeUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const [owner, repo, ref, installDir, variantDir, fileName] = parts;
+    const isCommitHash = /^[0-9a-f]{40}$/.test(ref);
+    const isSimpleRef = /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(ref) && !ref.includes('..');
+
+    return parsed.origin === 'https://raw.githubusercontent.com'
+      && parts.length === 6
+      && owner === 'ctsunny'
+      && repo === 'sb-nodejs-komari'
+      && (isCommitHash || isSimpleRef)
+      && installDir === 'install'
+      && variantDir === 'nodejs-container'
+      && fileName === 'start.sh';
+  } catch (error) {
+    return false;
+  }
+}
+
+function buildFullRuntimeEnv() {
+  const allowedNames = new Set([
+    'PATH',
+    'HOME',
+    'USER',
+    'LOGNAME',
+    'LANG',
+    'LC_ALL',
+    'SHELL',
+    'PWD',
+    'TMPDIR',
+    'TMP',
+    'TEMP',
+    'TZ',
+    'HTTP_PROXY',
+    'HTTPS_PROXY',
+    'ALL_PROXY',
+    'NO_PROXY',
+    'http_proxy',
+    'https_proxy',
+    'all_proxy',
+    'no_proxy',
+    'PORT',
+    'PORTS',
+    'SERVER_PORT',
+    'LOCAL_SERVER_PORT',
+    'PANEL_PORT',
+    'PANEL_PORTS',
+    'APP_PORT',
+    'APP_PORTS',
+    'WEB_PORT',
+    'WEB_PORTS',
+    'HTTP_PORT',
+    'HTTP_PORTS',
+    'LISTEN_PORT',
+    'LISTEN_PORTS',
+    'ARGO_TOKEN',
+    'SINGLE_PORT_UDP',
+    'KOMARI_INSTALL_URL',
+    'KOMARI_ENDPOINT',
+    'KOMARI_TOKEN',
+    'KOMARI_AUTO_DISCOVERY_TOKEN',
+  ]);
+  const env = {};
+
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value == null) {
+      continue;
+    }
+
+    if (allowedNames.has(key) || /^[A-Z0-9_]+_PORTS?$/.test(key)) {
+      env[key] = value;
+    }
+  }
+
+  return env;
+}
+
 async function materializeFullRuntimeScript() {
   const runtimeDir = path.join(workDir, 'full-runtime');
   const runtimeScriptPath = path.join(runtimeDir, 'start.sh');
@@ -179,7 +259,12 @@ async function materializeFullRuntimeScript() {
     return runtimeScriptPath;
   }
 
-  await downloadFileStrongly(TRUSTED_FULL_RUNTIME_URL, runtimeScriptPath);
+  if (!isTrustedFullRuntimeUrl(FULL_RUNTIME_URL)) {
+    throw new Error('NO_STARTSH_RUNTIME_URL 不受信任');
+  }
+
+  await downloadFileStrongly(FULL_RUNTIME_URL, runtimeScriptPath);
+  fs.chmodSync(runtimeScriptPath, 0o755);
   return runtimeScriptPath;
 }
 
@@ -194,19 +279,31 @@ async function startFullRuntime() {
     return false;
   }
 
+  let runtimeScriptPath = '';
+
   try {
     agentStatus = '完整节点模式启动中';
-    const runtimeScriptPath = await materializeFullRuntimeScript();
+    runtimeScriptPath = await materializeFullRuntimeScript();
     appendLog(`[Panel] 已切换到完整节点模式，脚本路径: ${runtimeScriptPath}\n`);
     console.log('[Runtime] 已切换到完整节点模式（含 sing-box / Argo / /sub / Komari）');
     execFileSync('bash', [runtimeScriptPath], {
       cwd: path.dirname(runtimeScriptPath),
-      env: process.env,
+      env: buildFullRuntimeEnv(),
       stdio: 'inherit',
     });
     return true;
   } catch (error) {
-    const message = `\n[Panel] 完整节点模式启动失败，回退到纯 Komari 模式: ${error.message}\n`;
+    const details = ['bash 执行失败'];
+    if (runtimeScriptPath) {
+      details.push(`脚本: ${runtimeScriptPath}`);
+    }
+    if (typeof error.status === 'number') {
+      details.push(`退出码: ${error.status}`);
+    }
+    if (error.signal) {
+      details.push(`信号: ${error.signal}`);
+    }
+    const message = `\n[Panel] 完整节点模式启动失败，回退到纯 Komari 模式: ${details.join(' | ')}\n`;
     appendLog(message);
     console.error(message);
     agentStatus = '完整节点启动失败';

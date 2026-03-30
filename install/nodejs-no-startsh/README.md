@@ -74,6 +74,7 @@ const LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN = '';
 - `KOMARI_TOKEN`
 - `KOMARI_AUTO_DISCOVERY_TOKEN`
 - `NO_STARTSH_FULL_RUNTIME`
+- `NO_STARTSH_RUNTIME_URL`
 
 并且要注意：
 
@@ -87,6 +88,10 @@ const LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN = '';
   - 单端口 UDP 协议，支持 `hy2` / `tuic`
 - `NO_STARTSH_FULL_RUNTIME`
   - 设为 `1` / `true` / `yes` 时，强制关闭完整节点模式，只保留旧的纯 Komari 文本面板
+- `NO_STARTSH_RUNTIME_URL`
+  - 可选，自定义完整节点脚本下载地址
+  - 仅接受当前仓库 `raw.githubusercontent.com/ctsunny/sb-nodejs-komari/.../install/nodejs-container/start.sh` 形式的地址
+  - 建议使用你信任的提交哈希、标签名，或不含 `/` 的分支名
 
 ## 上传与启动
 
@@ -104,11 +109,13 @@ npm start
 ## 运行要求
 
 - Node.js `>= 18`
-- 运行环境存在 `bash`
+- 完整节点模式需要 `bash`
 - 运行环境允许访问外网
 - 运行环境允许访问 GitHub Releases
 - 如果部署时目录里不存在 `start.sh`，还需要允许访问：
   - `https://raw.githubusercontent.com`
+
+如果环境没有 `bash`，脚本会自动回退到旧的纯 Komari 文本面板。
 
 ## 工作目录说明
 
