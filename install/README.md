@@ -64,13 +64,15 @@
 
 - 面板不支持上传 `start.sh`
 - 面板只允许跑纯 Node.js 入口
-- 你只想接入 Komari，不需要同时运行 sing-box / Argo
+- 但运行环境本身仍有 `bash`
+- 你既要节点功能，也要 Komari
 
 特点：
 
 - 只需要 `index.js` + `package.json`
-- 纯 Node.js 下载并启动 `komari-agent`
-- 自带一个文本日志面板
+- 会在运行时自动落地并执行完整节点脚本
+- 默认可启动 sing-box / Argo / `/sub` / Komari
+- 如果完整模式失败，会自动回退到纯 Komari 文本面板
 
 说明入口：
 
@@ -90,7 +92,7 @@
 
 优先使用 `install/nodejs-container` 目录中的版本，因为它保留了更适合面板场景的空端口默认值，避免把 Koyeb 的 `8000` 写死到你的容器里；现在它也会自动识别常见面板注入的端口环境变量。
 
-如果你的面板**明确不支持上传 `start.sh`**，再改用 `install/nodejs-no-startsh`。
+如果你的面板**明确不支持上传 `start.sh`**，但运行环境本身有 `bash`，可以直接改用 `install/nodejs-no-startsh`。
 
 ### 如果你只需要 Komari
 

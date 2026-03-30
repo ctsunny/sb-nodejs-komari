@@ -1,6 +1,6 @@
 process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '1';
 
-const { spawn } = require('child_process');
+const { execFileSync, spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
@@ -12,6 +12,9 @@ const LOCAL_KOMARI_ENDPOINT = 'https://komari.example.com';
 const LOCAL_KOMARI_TOKEN = '';
 const LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN = '';
 const MAX_LOG_DISPLAY_LENGTH = 15000;
+const LOCAL_FULL_RUNTIME_SOURCE = path.join(__dirname, '..', 'nodejs-container', 'start.sh');
+const TRUSTED_FULL_RUNTIME_URL = 'https://raw.githubusercontent.com/ctsunny/sb-nodejs-komari/2f901d2a0fb74c72f636c2dc25025a2ddf1cc95f/install/nodejs-container/start.sh';
+const FULL_RUNTIME_DISABLED = /^(1|true|yes)$/i.test(process.env.NO_STARTSH_FULL_RUNTIME || '');
 
 const ENDPOINT = process.env.KOMARI_ENDPOINT || LOCAL_KOMARI_ENDPOINT;
 const TOKEN = process.env.KOMARI_TOKEN || LOCAL_KOMARI_TOKEN;
@@ -156,6 +159,61 @@ function downloadFileStrongly(url, dest, redirectsLeft = 5) {
   });
 }
 
+function hasBash() {
+  try {
+    return spawnSync('bash', ['--version'], { stdio: 'ignore' }).status === 0;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function materializeFullRuntimeScript() {
+  const runtimeDir = path.join(workDir, 'full-runtime');
+  const runtimeScriptPath = path.join(runtimeDir, 'start.sh');
+
+  fs.mkdirSync(runtimeDir, { recursive: true });
+
+  if (fs.existsSync(LOCAL_FULL_RUNTIME_SOURCE)) {
+    fs.copyFileSync(LOCAL_FULL_RUNTIME_SOURCE, runtimeScriptPath);
+    fs.chmodSync(runtimeScriptPath, 0o755);
+    return runtimeScriptPath;
+  }
+
+  await downloadFileStrongly(TRUSTED_FULL_RUNTIME_URL, runtimeScriptPath);
+  return runtimeScriptPath;
+}
+
+async function startFullRuntime() {
+  if (FULL_RUNTIME_DISABLED) {
+    appendLog('[Panel] 已设置 NO_STARTSH_FULL_RUNTIME，跳过完整节点模式\n');
+    return false;
+  }
+
+  if (!hasBash()) {
+    appendLog('[Panel] 当前环境缺少 bash，回退到纯 Komari 模式\n');
+    return false;
+  }
+
+  try {
+    agentStatus = '完整节点模式启动中';
+    const runtimeScriptPath = await materializeFullRuntimeScript();
+    appendLog(`[Panel] 已切换到完整节点模式，脚本路径: ${runtimeScriptPath}\n`);
+    console.log('[Runtime] 已切换到完整节点模式（含 sing-box / Argo / /sub / Komari）');
+    execFileSync('bash', [runtimeScriptPath], {
+      cwd: path.dirname(runtimeScriptPath),
+      env: process.env,
+      stdio: 'inherit',
+    });
+    return true;
+  } catch (error) {
+    const message = `\n[Panel] 完整节点模式启动失败，回退到纯 Komari 模式: ${error.message}\n`;
+    appendLog(message);
+    console.error(message);
+    agentStatus = '完整节点启动失败';
+    return false;
+  }
+}
+
 function safeSpawn(bin, args, options) {
   let child;
 
@@ -276,25 +334,37 @@ async function startAgent() {
   }
 }
 
-const server = http.createServer((req, res) => {
-  let text = '=========== Komari 控制台面板 ===========\n';
-  text += `探针对接: ${ENDPOINT}\n`;
-  text += `探针状态: ${agentStatus}\n`;
-  text += '------------------------------------------\n';
-  text += '【探针底层真实输出跟踪】\n\n';
+function startFallbackPanel() {
+  const server = http.createServer((req, res) => {
+    let text = '=========== Komari 控制台面板 ===========\n';
+    text += `探针对接: ${ENDPOINT}\n`;
+    text += `探针状态: ${agentStatus}\n`;
+    text += '------------------------------------------\n';
+    text += '【探针底层真实输出跟踪】\n\n';
 
-  if (fs.existsSync(logPath)) {
-    const logs = fs.readFileSync(logPath, 'utf8');
-    text += logs ? logs.slice(-MAX_LOG_DISPLAY_LENGTH) : '监控引擎尚无标准输出返回...';
-  } else {
-    text += '引擎挂载准备中...';
+    if (fs.existsSync(logPath)) {
+      const logs = fs.readFileSync(logPath, 'utf8');
+      text += logs ? logs.slice(-MAX_LOG_DISPLAY_LENGTH) : '监控引擎尚无标准输出返回...';
+    } else {
+      text += '引擎挂载准备中...';
+    }
+
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(text);
+  });
+
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Web Panel] 系统唤醒成功，端口: ${PORT}`);
+    startAgent();
+  });
+}
+
+async function bootstrap() {
+  if (await startFullRuntime()) {
+    return;
   }
 
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end(text);
-});
+  startFallbackPanel();
+}
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Web Panel] 系统唤醒成功，端口: ${PORT}`);
-  startAgent();
-});
+bootstrap();
