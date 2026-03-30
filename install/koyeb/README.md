@@ -98,7 +98,14 @@ npm start
 SERVER_PORT=8000
 ```
 
-如需启用 Komari，再额外填写：
+如需启用 Komari，再额外填写以下其中一种：
+
+```text
+KOMARI_ENDPOINT=https://你的-komari-地址
+KOMARI_TOKEN=你的客户端固定token
+```
+
+或者：
 
 ```text
 KOMARI_ENDPOINT=https://你的-komari-地址
@@ -149,14 +156,22 @@ SERVER_PORT=8000
 
 ## 启用 Komari 时的说明
 
-如果额外设置：
+如果额外设置以下其中一种：
 
 ```text
 KOMARI_ENDPOINT=https://your-komari.example.com
-KOMARI_AUTO_DISCOVERY_TOKEN=your-token
+KOMARI_TOKEN=your-fixed-token
 ```
 
-脚本会自动尝试安装 Komari。
+或者：
+
+```text
+KOMARI_ENDPOINT=https://your-komari.example.com
+KOMARI_AUTO_DISCOVERY_TOKEN=your-auto-discovery-token
+```
+
+脚本会自动尝试安装 Komari。  
+如果同时设置了 `KOMARI_TOKEN` 和 `KOMARI_AUTO_DISCOVERY_TOKEN`，脚本会优先使用固定 token。
 
 如果当前环境不是 root，仓库会自动回退到用户态启动模式，因此在 Koyeb 这类容器环境中也能继续工作。
 
@@ -178,5 +193,5 @@ KOMARI_AUTO_DISCOVERY_TOKEN=your-token
 优先检查：
 
 - `KOMARI_ENDPOINT` 是否正确
-- `KOMARI_AUTO_DISCOVERY_TOKEN` 是否正确
+- `KOMARI_TOKEN` 或 `KOMARI_AUTO_DISCOVERY_TOKEN` 是否正确
 - 容器是否允许联网下载文件
