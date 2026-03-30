@@ -41,6 +41,8 @@
 默认情况下，不额外传 `SERVER_PORT` 也会使用内置的 `8000`。  
 如果你想换成别的端口，也可以显式设置 `SERVER_PORT`，但要同时把 Koyeb 暴露端口和健康检查端口一起改掉。
 
+> 说明：本文所有 Komari 地址、token、域名示例都只是占位符，请替换成你自己的真实配置，不要直接照抄示例值。
+
 同时脚本支持自动执行 Komari 探针安装。  
 如果你填写的是自动发现 token，执行形式等价于：
 
@@ -357,10 +359,32 @@ KOMARI_AUTO_DISCOVERY_TOKEN="your-auto-discovery-token" SERVER_PORT="3000 3001" 
 订阅地址格式：
 
 ```text
+https://ARGO_DOMAIN/sub
+```
+
+如果 Argo 临时隧道还没有拿到域名，脚本会自动回退为：
+
+```text
 http://IP:PORT/sub
 ```
 
-其中 `PORT` 为 HTTP 订阅端口：
+其中：
+
+- `ARGO_DOMAIN` 为日志里显示的 `xxxx.trycloudflare.com`
+- `IP:PORT` 为本机直连订阅地址
+- `/sub` 同时也是 Koyeb 健康检查路径
+
+端口规则如下：
 
 - 单端口模式下，与传入的唯一端口相同
 - 多端口模式下，使用传入的第 2 个端口
+
+也就是说，看到类似下面日志时：
+
+```text
+[Argo] 域名: example.trycloudflare.com
+订阅链接: https://example.trycloudflare.com/sub
+直连订阅: http://1.2.3.4:8000/sub
+```
+
+一般优先使用日志里的 **`订阅链接`**；只有在你自己确认公网 `IP:PORT` 可直连时，再使用 `直连订阅`。

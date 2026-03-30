@@ -43,6 +43,8 @@ LOCAL_KOMARI_ENDPOINT="https://komari.example.com"
 LOCAL_KOMARI_AUTO_DISCOVERY_TOKEN=""
 ```
 
+> 说明：这里的地址、token、域名全部都是占位示例，请换成你自己的配置，不要直接照抄示例值。
+
 推荐至少填写：
 
 - `LOCAL_SERVER_PORT`
@@ -172,3 +174,20 @@ bash start.sh
 - `/${UUID}`
 
 根路径 `/` 返回 `404`，不要把健康检查写成 `/`。
+
+### 5. 日志里打印的订阅地址打不开
+
+现在脚本会优先输出：
+
+```text
+https://ARGO_DOMAIN/sub
+```
+
+因为很多面板 / 容器环境里的 `http://IP:PORT/sub` 并不一定对外可直连。  
+如果日志里同时出现：
+
+```text
+直连订阅: http://IP:PORT/sub
+```
+
+那只是备用地址；通常优先使用 `订阅链接: https://...trycloudflare.com/sub` 即可。
